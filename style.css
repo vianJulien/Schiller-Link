@@ -59,13 +59,21 @@ h1 { margin:0; font-size:1.1rem; font-weight:600; letter-spacing:0.5px; }
 #sidebar-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:150; backdrop-filter: blur(2px); }
 #sidebar { position:fixed; top:0; left:-280px; width:280px; height:100%; background:var(--card); border-right:1px solid var(--border); transition:left 0.3s; z-index:160; display:flex; flex-direction:column; }
 #sidebar.open { left:0; }
+.sb-header { padding:20px; border-bottom:1px solid var(--border); font-weight:bold; display:flex; justify-content:space-between; align-items: center; padding-top: max(20px, env(safe-area-inset-top)); }
+.sb-list { flex:1; overflow-y:auto; padding:10px; }
 .sb-item { padding:12px; margin:5px 10px; border-radius:8px; cursor:pointer; color:var(--text-sub); position:relative; overflow:hidden; }
 .sb-item.active { background:var(--accent-bg); color:var(--accent); font-weight:600; }
-
-/* 新增：侧边栏重命名按钮样式 */
 .sb-edit { position:absolute; right:35px; top:10px; color:var(--text-sub); background:none; border:none; display:none; font-size:1.1rem; padding: 0 5px; }
 .sb-del { position:absolute; right:5px; top:10px; color:#f85149; background:none; border:none; display:none; font-size:1.1rem; padding: 0 5px; }
 .sb-item:hover .sb-edit, .sb-item:hover .sb-del { display:block; }
+
+/* Tune Page Styles */
+.tune-card { background:var(--bg); border:1px solid var(--border); padding:15px; border-radius:12px; box-shadow:var(--shadow); }
+.tune-head { font-weight:bold; margin-bottom:10px; display:flex; justify-content:space-between; color:var(--text); }
+.tune-val { color:var(--accent); font-family:monospace; }
+.tune-desc { font-size:0.75rem; color:var(--text-sub); margin-top:8px; display:flex; justify-content:space-between; }
+.slider { -webkit-appearance: none; width: 100%; height: 6px; border-radius: 3px; background: var(--border); outline: none; margin: 10px 0; }
+.slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 20px; height: 20px; border-radius: 50%; background: var(--accent); cursor: pointer; border: 2px solid var(--bg); }
 
 #set-modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:200; justify-content:center; align-items:flex-start; overflow-y:auto; backdrop-filter: blur(3px); }
 .modal { background:var(--bg); width:90%; margin-top:10vh; padding:25px; border-radius:16px; border:1px solid var(--border); box-sizing:border-box; color: var(--text); }

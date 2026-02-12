@@ -1,4 +1,3 @@
-// PDF Worker Setting
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
 const ui = {
@@ -23,12 +22,22 @@ const ui = {
         localStorage.setItem('v11_theme', theme);
         document.getElementById('meta-theme').setAttribute('content', isDark ? '#0d1117' : '#ffffff');
     },
+    
+    // 更新 updateTune 函数，用于滑动条实时更新显示
+    updateTune: (key, val) => {
+        document.getElementById('val-'+key).innerText = val;
+    },
 
     nav: (p) => {
         document.querySelectorAll('.page').forEach(e=>e.classList.remove('active'));
         document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active'));
-        document.getElementById(p==='chat'?'p-chat':'p-cal').classList.add('active');
-        document.querySelectorAll('.nav-item')[p==='chat'?0:1].classList.add('active');
+        // 兼容 tune 页面，如果 p 是 tune，显示 tune page，不激活底部nav
+        if (p === 'tune') {
+            document.getElementById('p-tune').classList.add('active');
+        } else {
+            document.getElementById(p==='chat'?'p-chat':'p-cal').classList.add('active');
+            document.querySelectorAll('.nav-item')[p==='chat'?0:1].classList.add('active');
+        }
     },
     modal: (s) => { document.getElementById('set-modal').style.display = s?'flex':'none'; if(s) core.renderMemCards(); },
     tab: (t) => {
@@ -94,8 +103,8 @@ const ui = {
 };
 
 const core = {
-    // 新增 temp 和 maxTokens 配置项
-    conf: { url:'', key:'', model:'', persona:'', temp:'1.0', maxTokens:'0' },
+    // 新增 p_warm 等5个性格参数，默认50
+    conf: { url:'', key:'', model:'', persona:'', temp:'1.0', maxTokens:'0', p_warm:50, p_direct:50, p_intel:50, p_empathy:50, p_obed:50 },
     voiceConf: { mode: 'native', key: '', voice: 'onyx' },
     mems: [], evts: [], sessions: {}, currSessId: null,
     autoTTS: false, 
@@ -103,8 +112,9 @@ const core = {
 
     init: () => {
         ui.initTheme();
-        // 加载配置，包括新增的参数
-        ['url','key','model','persona', 'temp', 'maxTokens'].forEach(k => core.conf[k] = localStorage.getItem('v11_'+k) || core.conf[k]);
+        // 加载所有配置
+        Object.keys(core.conf).forEach(k => core.conf[k] = localStorage.getItem('v11_'+k) || core.conf[k]);
+        
         if(!core.conf.url) core.preset('ds');
         if(!core.conf.persona) core.conf.persona = "你叫艾德里安·席勒，教授。";
         
@@ -115,6 +125,13 @@ const core = {
         document.getElementById('c-temp').value = core.conf.temp;
         document.getElementById('t-val').innerText = core.conf.temp;
         document.getElementById('c-max').value = core.conf.maxTokens;
+
+        // 初始化性格滑块显示
+        ['warm', 'direct', 'intel', 'empathy', 'obed'].forEach(k => {
+            const val = core.conf['p_'+k];
+            document.getElementById('rng-'+k).value = val;
+            document.getElementById('val-'+k).innerText = val;
+        });
 
         const v = localStorage.getItem('v11_voice'); if(v) core.voiceConf = JSON.parse(v); core.updateVoiceUI();
         
@@ -150,9 +167,54 @@ const core = {
         core.conf.temp = document.getElementById('c-temp').value;
         core.conf.maxTokens = document.getElementById('c-max').value;
         
-        ['url','key','model','persona', 'temp', 'maxTokens'].forEach(k => localStorage.setItem('v11_'+k, core.conf[k]));
-        alert('Saved. 参数已更新。');
+        // 仅保存连接设置，不覆盖性格参数
+        Object.keys(core.conf).forEach(k => {
+            if(!k.startsWith('p_')) localStorage.setItem('v11_'+k, core.conf[k]);
+        });
+        alert('Saved.');
     },
+    
+    // 专门用于保存性格参数并测试
+    testPersonality: () => {
+        ['warm', 'direct', 'intel', 'empathy', 'obed'].forEach(k => {
+            const val = document.getElementById('rng-'+k).value;
+            core.conf['p_'+k] = val;
+            localStorage.setItem('v11_p_'+k, val);
+        });
+        
+        // 切换回聊天页面
+        ui.nav('chat');
+        
+        // 自动填入并发送测试语
+        document.getElementById('u-in').value = "今晚我感到孤独";
+        core.send();
+    },
+
+    // 核心：生成性格提示词
+    generatePersonalityPrompt: () => {
+        const { p_warm, p_direct, p_intel, p_empathy, p_obed } = core.conf;
+        const w = parseInt(p_warm), d = parseInt(p_direct), i = parseInt(p_intel), e = parseInt(p_empathy), o = parseInt(p_obed);
+        
+        let p = "\n[Personality Traits Adjustment]:\n";
+        
+        if(w > 70) p += "- You are extremely warm, affectionate, and gentle.\n";
+        else if(w < 30) p += "- You are cold, distant, and aloof.\n";
+        
+        if(d > 70) p += "- Be blunt, straightforward, and do not sugarcoat your words.\n";
+        else if(d < 30) p += "- Be polite, evasive, and indirect.\n";
+        
+        if(i > 70) p += "- Use academic, profound, and sophisticated language.\n";
+        else if(i < 30) p += "- Use simple, casual, and layman language.\n";
+        
+        if(e > 70) p += "- Show deep empathy and validate feelings constantly.\n";
+        else if(e < 30) p += "- Focus on logic and facts, disregard emotional appeals.\n";
+        
+        if(o > 70) p += "- Be submissive, obedient, and agree with the user.\n";
+        else if(o < 30) p += "- Be stubborn, independent, and challenge the user's views.\n";
+        
+        return p;
+    },
+
     setVoiceMode: (m) => { core.voiceConf.mode = m; core.updateVoiceUI(); },
     updateVoiceUI: () => {
         document.getElementById('v-mode-disp').value = core.voiceConf.mode.toUpperCase();
@@ -221,42 +283,34 @@ const core = {
         ui.clearPreviews();
         document.getElementById('img-input').value=''; document.getElementById('file-input').value='';
     },
-
     editMsg: (idx) => {
-        ui.hideCtx();
-        if (idx == null) return;
-        const sess = core.sessions[core.currSessId];
-        const msg = sess.msgs[idx];
-        if (!msg) return;
-
+        ui.hideCtx(); if (idx == null) return;
+        const sess = core.sessions[core.currSessId]; const msg = sess.msgs[idx]; if (!msg) return;
         document.getElementById('u-in').value = msg.content;
         if (msg.img) { core.currUpload.img = msg.img; ui.addPreview('img', msg.img, ''); }
         if (msg.file) { core.currUpload.fileName = msg.file; ui.addPreview('file', null, msg.file); }
-
         sess.msgs = sess.msgs.slice(0, idx);
-        core.saveSessions();
-        core.loadSession(core.currSessId);
+        core.saveSessions(); core.loadSession(core.currSessId);
     },
-
     regenerate: (idx) => {
-        ui.hideCtx();
-        const sess = core.sessions[core.currSessId];
-        if(!sess || sess.msgs.length === 0) return;
-        
-        if (idx == null) idx = sess.msgs.length - 1;
-        let userIdx = idx - 1;
-        if (userIdx < 0) return; 
-        
+        ui.hideCtx(); const sess = core.sessions[core.currSessId]; if(!sess || sess.msgs.length === 0) return;
+        if (idx == null) idx = sess.msgs.length - 1; let userIdx = idx - 1; if (userIdx < 0) return; 
         const lastUserMsg = sess.msgs[userIdx];
         sess.msgs = sess.msgs.slice(0, userIdx);
-        core.saveSessions();
-        core.loadSession(core.currSessId);
-        
+        core.saveSessions(); core.loadSession(core.currSessId);
         if(lastUserMsg) {
             document.getElementById('u-in').value = lastUserMsg.content;
             if(lastUserMsg.img) { core.currUpload.img = lastUserMsg.img; ui.addPreview('img', lastUserMsg.img, ''); }
             if(lastUserMsg.file) { core.currUpload.fileName = lastUserMsg.file; ui.addPreview('file', null, lastUserMsg.file); }
             core.send();
+        }
+    },
+    editSessTitle: (id, e) => {
+        e.stopPropagation(); const s = core.sessions[id]; if(!s) return;
+        const newTitle = prompt('重命名当前档案:', s.title);
+        if(newTitle !== null && newTitle.trim() !== '') {
+            s.title = newTitle.trim(); core.saveSessions(); core.renderSessionList();
+            if(core.currSessId === id) document.getElementById('header-title').innerText = s.title;
         }
     },
 
@@ -273,46 +327,41 @@ const core = {
         
         let finalText = txt;
         if(core.currUpload.fileText) finalText += `\n\n[FILE CONTENT: ${core.currUpload.fileName}]\n${core.currUpload.fileText}\n[END FILE]`;
-        
         let apiContent;
         if (core.currUpload.img) {
             apiContent = [ { type: "text", text: finalText || "Image." }, { type: "image_url", image_url: { url: core.currUpload.img } } ];
         } else { apiContent = finalText; }
 
         core.saveSessions();
-
-        const wasImg = core.currUpload.img;
-        core.currUpload = { img:null, fileText:null, fileName:null };
+        const wasImg = core.currUpload.img; core.currUpload = { img:null, fileText:null, fileName:null };
         el.value=''; ui.clearPreviews();
         
-        const aiIdx = sess.msgs.length;
-        const aiDiv = ui.bubble('ai', 'Thinking...', null, null, aiIdx);
+        const aiIdx = sess.msgs.length; const aiDiv = ui.bubble('ai', 'Thinking...', null, null, aiIdx);
 
-        let sys = core.conf.persona + `\n[Time:${new Date().toLocaleString()}]`;
+        // --- 核心更新：强化的 System Prompt，包含时间增强和性格微调 ---
+        const now = new Date();
+        const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+        const timeString = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')} ${days[now.getDay()]}`;
+
+        let sys = core.conf.persona + `\n[Current Date: ${timeString}]\n`;
+        sys += core.generatePersonalityPrompt(); // 注入性格参数
+
         if(core.evts.length) sys += `\n[Schedule]:\n${core.evts.map(e=>`- ${e.t} ${e.d} (${e.n})`).join('\n')}`;
         const hits = core.mems.filter(m => m.keys.some(k => txt.includes(k)));
         if(hits.length) sys += `\n[Memory]:\n${hits.map(h=>`- ${h.info}`).join('\n')}`;
 
         const apiMsgs = [{role:'system', content:sys}];
         sess.msgs.forEach(m => {
-            if(m === sess.msgs[sess.msgs.length-1]) {
-                apiMsgs.push({role:'user', content: apiContent});
-            } else {
-                apiMsgs.push({role:m.role, content:m.content + (m.file?` [File: ${m.file} sent]`:'')});
-            }
+            if(m === sess.msgs[sess.msgs.length-1]) apiMsgs.push({role:'user', content: apiContent});
+            else apiMsgs.push({role:m.role, content:m.content + (m.file?` [File: ${m.file} sent]`:'')});
         });
 
         if(wasImg && core.conf.url.includes('deepseek')) { aiDiv.innerHTML = "Error: DeepSeek cannot see images."; sess.msgs.pop(); return; }
 
         try {
-            // 新增：构建携带高级参数的 Request Body
             const reqBody = { model: core.conf.model, messages: apiMsgs, stream: true };
-            
-            const tempVal = parseFloat(core.conf.temp);
-            if (!isNaN(tempVal)) reqBody.temperature = tempVal;
-            
-            const maxVal = parseInt(core.conf.maxTokens);
-            if (!isNaN(maxVal) && maxVal > 0) reqBody.max_tokens = maxVal;
+            const tempVal = parseFloat(core.conf.temp); if (!isNaN(tempVal)) reqBody.temperature = tempVal;
+            const maxVal = parseInt(core.conf.maxTokens); if (!isNaN(maxVal) && maxVal > 0) reqBody.max_tokens = maxVal;
 
             const res = await fetch(core.conf.url, {
                 method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${core.conf.key}`},
@@ -320,7 +369,6 @@ const core = {
             });
             const r = res.body.getReader(); const dec = new TextDecoder();
             let final = ''; aiDiv.innerHTML='';
-            
             while(true) {
                 const {done,value} = await r.read(); if(done) break;
                 const chunk = dec.decode(value,{stream:true});
@@ -331,37 +379,18 @@ const core = {
                 });
                 document.getElementById('chat-box').scrollTop = 99999;
             }
-            const now = new Date();
             aiDiv.innerHTML += `<div class="time">${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}</div>`;
             aiDiv.oncontextmenu = (e) => { e.preventDefault(); ui.showCtx(e.pageX, e.pageY, 'ai', aiIdx); };
             let timer;
             aiDiv.ontouchstart = (e) => { timer = setTimeout(() => ui.showCtx(e.touches[0].pageX, e.touches[0].pageY, 'ai', aiIdx), 1000); };
-            aiDiv.ontouchend = () => clearTimeout(timer);
-            aiDiv.ontouchmove = () => clearTimeout(timer);
+            aiDiv.ontouchend = () => clearTimeout(timer); aiDiv.ontouchmove = () => clearTimeout(timer);
             aiDiv.innerHTML += `<div class="replay-btn" onclick="core.speak('${final.replace(/'/g, "\\'").replace(/\n/g, ' ')}', true)">🔈 Replay</div>`;
-
             sess.msgs.push({role:'assistant', content:final});
             core.saveSessions();
             if(core.autoTTS) core.speak(final);
         } catch(e) { aiDiv.innerHTML = 'Error: '+e.message; }
     },
-
-    // 新增：手动重命名对话标题的方法
-    editSessTitle: (id, e) => {
-        e.stopPropagation(); // 阻止点击事件冒泡导致切换对话
-        const s = core.sessions[id];
-        if(!s) return;
-        const newTitle = prompt('重命名当前档案:', s.title);
-        if(newTitle !== null && newTitle.trim() !== '') {
-            s.title = newTitle.trim();
-            core.saveSessions();
-            core.renderSessionList();
-            if(core.currSessId === id) {
-                document.getElementById('header-title').innerText = s.title;
-            }
-        }
-    },
-
+    // ... 其他函数保持不变 ...
     speak: async (text, force=false) => {
         if(!core.autoTTS && !force) return;
         const plain = text.replace(/[*#`]/g, '');
@@ -386,8 +415,6 @@ const core = {
     newSession: () => { const id = Date.now().toString(); core.sessions[id] = {id, title:'New Chat', msgs:[]}; core.currSessId=id; core.saveSessions(); core.loadSession(id); ui.toggleSidebar(false); },
     loadSession: (id) => { if(!core.sessions[id]) return; core.currSessId=id; localStorage.setItem('v11_curr_id', id); document.getElementById('header-title').innerText=core.sessions[id].title; const box=document.getElementById('chat-box'); box.innerHTML=''; core.sessions[id].msgs.forEach((m, i)=>ui.bubble(m.role==='assistant'?'ai':'user', m.content, m.img, m.file, i)); },
     saveSessions: () => localStorage.setItem('v11_sessions', JSON.stringify(core.sessions)),
-    
-    // 更新：在侧边栏渲染时加入编辑按钮
     renderSessionList: () => { 
         const list=document.getElementById('session-list'); 
         list.innerHTML=''; 
@@ -395,8 +422,6 @@ const core = {
             const s=core.sessions[id]; 
             const div=document.createElement('div'); 
             div.className=`sb-item ${id===core.currSessId?'active':''}`; 
-            
-            // 为对话名称和按钮进行布局优化
             div.innerHTML=`
                 <span style="display:inline-block; max-width:70%; overflow:hidden; text-overflow:ellipsis; vertical-align:middle;">${s.title}</span>
                 <button class="sb-edit" onclick="core.editSessTitle('${id}', event)">✏️</button>
@@ -406,7 +431,6 @@ const core = {
             list.appendChild(div); 
         }); 
     },
-    
     delSess: (id, e) => { e.stopPropagation(); if(!confirm('Delete?')) return; delete core.sessions[id]; core.saveSessions(); if(core.currSessId===id) core.newSession(); else core.renderSessionList(); },
     addMem: () => { const k=document.getElementById('new-mem-keys').value.trim(); const i=document.getElementById('new-mem-info').value.trim(); if(k&&i) { core.mems.push({keys:k.split(/[,，\s]+/).filter(k=>k), info:i}); localStorage.setItem('v11_mems', JSON.stringify(core.mems)); core.renderMemCards(); document.getElementById('new-mem-keys').value=''; document.getElementById('new-mem-info').value=''; } },
     delMem: (i) => { core.mems.splice(i,1); localStorage.setItem('v11_mems', JSON.stringify(core.mems)); core.renderMemCards(); },
@@ -415,6 +439,6 @@ const core = {
     delEv: (id) => { core.evts=core.evts.filter(e=>e.id!==id); localStorage.setItem('v11_evts', JSON.stringify(core.evts)); core.renderEvt(); },
     renderEvt: () => { const b=document.getElementById('evt-list'); b.innerHTML=''; core.evts.forEach(e=>{ b.innerHTML+=`<div class="evt"><div style="display:flex;justify-content:space-between"><b>${e.d}</b><span style="color:var(--accent)">${e.t}</span></div><div class="evt-n">${e.n}</div><button class="del" onclick="core.delEv(${e.id})">×</button></div>`; }); },
     exportData: () => { const d={conf:core.conf,voice:core.voiceConf,mems:core.mems,evts:core.evts,sessions:core.sessions}; const b=new Blob([JSON.stringify(d,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='schiller_v11.json'; a.click(); },
-    importData: (i) => { const r=new FileReader(); r.onload=(e)=>{ try { const d=JSON.parse(e.target.result); if(d.conf)['url','key','model','persona', 'temp', 'maxTokens'].forEach(k=>localStorage.setItem('v11_'+k,d.conf[k])); if(d.voice)localStorage.setItem('v11_voice',JSON.stringify(d.voice)); if(d.mems)localStorage.setItem('v11_mems',JSON.stringify(d.mems)); if(d.evts)localStorage.setItem('v11_evts',JSON.stringify(d.evts)); if(d.sessions)localStorage.setItem('v11_sessions',JSON.stringify(d.sessions)); alert('Restored'); location.reload(); } catch(err){alert('Error');} }; r.readAsText(i.files[0]); }
+    importData: (i) => { const r=new FileReader(); r.onload=(e)=>{ try { const d=JSON.parse(e.target.result); if(d.conf)['url','key','model','persona'].forEach(k=>localStorage.setItem('v11_'+k,d.conf[k])); if(d.voice)localStorage.setItem('v11_voice',JSON.stringify(d.voice)); if(d.mems)localStorage.setItem('v11_mems',JSON.stringify(d.mems)); if(d.evts)localStorage.setItem('v11_evts',JSON.stringify(d.evts)); if(d.sessions)localStorage.setItem('v11_sessions',JSON.stringify(d.sessions)); alert('Restored'); location.reload(); } catch(err){alert('Error');} }; r.readAsText(i.files[0]); }
 };
 core.init();
