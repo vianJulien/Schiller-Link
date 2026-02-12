@@ -59,10 +59,13 @@ h1 { margin:0; font-size:1.1rem; font-weight:600; letter-spacing:0.5px; }
 #sidebar-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:150; backdrop-filter: blur(2px); }
 #sidebar { position:fixed; top:0; left:-280px; width:280px; height:100%; background:var(--card); border-right:1px solid var(--border); transition:left 0.3s; z-index:160; display:flex; flex-direction:column; }
 #sidebar.open { left:0; }
-.sb-item { padding:12px; margin:5px 10px; border-radius:8px; cursor:pointer; color:var(--text-sub); position:relative; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sb-item { padding:12px; margin:5px 10px; border-radius:8px; cursor:pointer; color:var(--text-sub); position:relative; overflow:hidden; }
 .sb-item.active { background:var(--accent-bg); color:var(--accent); font-weight:600; }
-.sb-del { position:absolute; right:5px; top:10px; color:#f85149; background:none; border:none; display:none; font-size:1.1rem; }
-.sb-item:hover .sb-del { display:block; }
+
+/* 新增：侧边栏重命名按钮样式 */
+.sb-edit { position:absolute; right:35px; top:10px; color:var(--text-sub); background:none; border:none; display:none; font-size:1.1rem; padding: 0 5px; }
+.sb-del { position:absolute; right:5px; top:10px; color:#f85149; background:none; border:none; display:none; font-size:1.1rem; padding: 0 5px; }
+.sb-item:hover .sb-edit, .sb-item:hover .sb-del { display:block; }
 
 #set-modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:200; justify-content:center; align-items:flex-start; overflow-y:auto; backdrop-filter: blur(3px); }
 .modal { background:var(--bg); width:90%; margin-top:10vh; padding:25px; border-radius:16px; border:1px solid var(--border); box-sizing:border-box; color: var(--text); }

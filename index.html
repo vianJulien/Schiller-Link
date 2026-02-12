@@ -6,7 +6,6 @@
 <title>ChatVie V11</title>
 
 <link rel="manifest" href="manifest.json">
-
 <link rel="stylesheet" href="style.css">
 
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -99,7 +98,16 @@
             <label>Chat API Key</label><input type="password" id="c-key" class="inp">
             <label>Endpoint</label><input type="text" id="c-url" class="inp">
             <label>Model</label><input type="text" id="c-mod" class="inp">
-            <label>Persona</label><textarea id="c-per" class="inp" rows="4"></textarea>
+            <label>Persona</label><textarea id="c-per" class="inp" rows="3"></textarea>
+            
+            <div style="background:var(--card); padding:10px; border-radius:8px; border:1px solid var(--border); margin-bottom:12px;">
+                <label>Temperature: <span id="t-val" style="color:var(--accent)">1.0</span> (发散度)</label>
+                <input type="range" id="c-temp" class="inp" min="0" max="2" step="0.1" value="1.0" oninput="document.getElementById('t-val').innerText=this.value" style="padding:0; height:auto; margin-bottom:15px;">
+                
+                <label>Max Tokens (最大长度, 0为默认)</label>
+                <input type="number" id="c-max" class="inp" value="0" style="margin-bottom:0;">
+            </div>
+
             <button class="btn primary" onclick="core.saveConn()">Save Config</button>
         </div>
         
