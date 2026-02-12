@@ -81,9 +81,9 @@ const ui = {
     showCtx: (x, y, role, msgIndex) => {
         const m = document.getElementById('ctx-menu');
         if (role === 'user') {
-            m.innerHTML = `<div class="ctx-item" onclick="core.editMsg(${msgIndex})">✏️ 编辑并重发</div>`;
+            m.innerHTML = `<div class="ctx-item" onclick="core.editMsg(${msgIndex})"> 编辑并重发</div>`;
         } else {
-            m.innerHTML = `<div class="ctx-item" onclick="core.regenerate(${msgIndex})">🔄 重新生成回答</div>`;
+            m.innerHTML = `<div class="ctx-item" onclick="core.regenerate(${msgIndex})"> 重新生成回答</div>`;
         }
         m.style.display = 'block';
         m.style.left = Math.min(x, window.innerWidth - 150) + 'px';
