@@ -13,8 +13,7 @@
 <link rel="apple-touch-icon" href="icon.png">
 <link rel="icon" type="image/png" href="icon.png">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)">
+<meta id="meta-theme" name="theme-color" content="#ffffff">
 
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -25,6 +24,7 @@
 </script>
 
 <style>
+    /* 默认 Light Mode 变量 */
     :root { 
         --bg: #ffffff; --card: #f6f8fa; --border: #d0d7de; --text: #24292f; --text-sub: #57606a;
         --accent: #0969da; --accent-bg: rgba(9, 105, 218, 0.1); --user: #0969da; --user-text: #ffffff;
@@ -32,16 +32,17 @@
         --shadow: 0 1px 3px rgba(0,0,0,0.12);
     }
 
-    @media (prefers-color-scheme: dark) {
-        :root { 
-            --bg: #0d1117; --card: #161b22; --border: #30363d; --text: #c9d1d9; --text-sub: #8b949e;
-            --accent: #58a6ff; --accent-bg: rgba(88,166,255,0.15); --user: #1f6feb; --user-text: #ffffff;
-            --ai: #21262d; --nav-bg: rgba(13,17,23,0.98); --header-bg: rgba(13,17,23,0.95);
-            --shadow: none;
-        }
+    /* 修复逻辑：不再单纯依赖 @media，而是依赖 body 上的 class。
+       当 body 有 class="dark-mode" 时，应用深色变量。
+    */
+    body.dark-mode {
+        --bg: #0d1117; --card: #161b22; --border: #30363d; --text: #c9d1d9; --text-sub: #8b949e;
+        --accent: #58a6ff; --accent-bg: rgba(88,166,255,0.15); --user: #1f6feb; --user-text: #ffffff;
+        --ai: #21262d; --nav-bg: rgba(13,17,23,0.98); --header-bg: rgba(13,17,23,0.95);
+        --shadow: none;
     }
 
-    body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; -webkit-tap-highlight-color: transparent; }
+    body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; -webkit-tap-highlight-color: transparent; transition: background 0.3s, color 0.3s; }
     
     /* Layout */
     .page { display:none; flex:1; flex-direction:column; overflow:hidden; position:relative; }
@@ -177,6 +178,10 @@
         </div>
 
         <div id="tab-conn" class="tab-content active">
+            <button class="btn" onclick="ui.toggleTheme()" style="width:100%; margin-bottom:15px; background:var(--bg); color:var(--text); border:1px solid var(--accent); font-weight:bold;">
+                🌗 Switch Theme (Day/Night)
+            </button>
+
             <div class="row" style="display:flex;gap:10px;">
                 <button class="btn" style="flex:1" onclick="core.preset('ds')">DeepSeek</button>
                 <button class="btn" style="flex:1" onclick="core.preset('oa')">GPT-4o</button>
@@ -226,6 +231,31 @@
 
 <script>
 const ui = {
+    // --- 修复：主题切换逻辑 ---
+    initTheme: () => {
+        const saved = localStorage.getItem('v11_theme');
+        if (saved === 'dark') {
+            document.body.classList.add('dark-mode');
+            document.getElementById('meta-theme').setAttribute('content', '#0d1117');
+        } else if (saved === 'light') {
+            document.body.classList.remove('dark-mode');
+            document.getElementById('meta-theme').setAttribute('content', '#ffffff');
+        } else {
+            // 没有保存过，检测系统设置
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.body.classList.add('dark-mode');
+                document.getElementById('meta-theme').setAttribute('content', '#0d1117');
+            }
+        }
+    },
+    toggleTheme: () => {
+        const isDark = document.body.classList.toggle('dark-mode');
+        const theme = isDark ? 'dark' : 'light';
+        localStorage.setItem('v11_theme', theme);
+        // 动态修改 meta theme-color 以匹配状态栏
+        document.getElementById('meta-theme').setAttribute('content', isDark ? '#0d1117' : '#ffffff');
+    },
+
     nav: (p) => {
         document.querySelectorAll('.page').forEach(e=>e.classList.remove('active'));
         document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active'));
@@ -252,7 +282,6 @@ const ui = {
         if(file) content += `<div class="file-tag">📄 ${file}</div>`;
         content += role==='user' ? txt : marked.parse(txt);
         
-        // --- 修复：添加时间戳 ---
         const now = new Date();
         const tStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
         content += `<div class="time">${tStr}</div>`;
@@ -260,23 +289,19 @@ const ui = {
         if(role !== 'user') {
              const rawTxt = txt.replace(/"/g, '&quot;');
              content += `<div class="replay-btn" onclick="core.speak('${rawTxt}', true)">🔈 Replay</div>`;
-             
-             // --- 修复：添加长按/右键事件监听 ---
              d.oncontextmenu = (e) => { e.preventDefault(); ui.showCtx(e.pageX, e.pageY); };
              let timer;
              d.ontouchstart = (e) => { timer = setTimeout(() => ui.showCtx(e.touches[0].pageX, e.touches[0].pageY), 600); };
              d.ontouchend = () => clearTimeout(timer);
-             d.ontouchmove = () => clearTimeout(timer); // 滑动取消长按
+             d.ontouchmove = () => clearTimeout(timer);
         }
         d.innerHTML = content;
         const box = document.getElementById('chat-box'); box.appendChild(d); box.scrollTop=box.scrollHeight;
         return d;
     },
-    // --- 修复：菜单显示逻辑 ---
     showCtx: (x, y) => {
         const m = document.getElementById('ctx-menu');
         m.style.display = 'block';
-        // 防止菜单溢出屏幕右侧
         m.style.left = Math.min(x, window.innerWidth - 150) + 'px';
         m.style.top = y + 'px';
     },
@@ -301,6 +326,9 @@ const core = {
     currUpload: { img: null, fileText: null, fileName: null },
 
     init: () => {
+        // --- 修复：加载主题 ---
+        ui.initTheme();
+
         ['url','key','model','persona'].forEach(k => core.conf[k] = localStorage.getItem('v11_'+k) || '');
         if(!core.conf.url) core.preset('ds');
         if(!core.conf.persona) core.conf.persona = "你叫艾德里安·席勒，教授。";
@@ -412,25 +440,19 @@ const core = {
         document.getElementById('img-input').value=''; document.getElementById('file-input').value='';
     },
 
-    // --- 修复：重新生成逻辑 ---
     regenerate: () => {
         const sess = core.sessions[core.currSessId];
         if(!sess || sess.msgs.length === 0) return;
-        // 移除最后一条 AI 消息
         if(sess.msgs[sess.msgs.length-1].role === 'assistant') {
             sess.msgs.pop();
-            // 获取并移除最后一条用户消息，重新填入输入框
             const lastUserMsg = sess.msgs.pop();
             core.saveSessions();
-            core.loadSession(core.currSessId); // 刷新界面
-            
+            core.loadSession(core.currSessId);
             if(lastUserMsg) {
                 document.getElementById('u-in').value = lastUserMsg.content;
-                // 如果有图片或文件，这里简化处理暂不自动恢复，仅恢复文本
                 if(lastUserMsg.img) core.currUpload.img = lastUserMsg.img; 
-                if(lastUserMsg.file) { core.currUpload.fileName = lastUserMsg.file; /* 内容丢失无法恢复，仅恢复文件名显示 */ }
-                
-                core.send(); // 自动重新发送
+                if(lastUserMsg.file) { core.currUpload.fileName = lastUserMsg.file; }
+                core.send();
             }
         }
     },
@@ -495,17 +517,13 @@ const core = {
                 });
                 document.getElementById('chat-box').scrollTop = 99999;
             }
-            // 补全时间戳
             const now = new Date();
             aiDiv.innerHTML += `<div class="time">${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}</div>`;
-            
-            // 重新绑定事件给新生成的泡泡
             aiDiv.oncontextmenu = (e) => { e.preventDefault(); ui.showCtx(e.pageX, e.pageY); };
             let timer;
             aiDiv.ontouchstart = (e) => { timer = setTimeout(() => ui.showCtx(e.touches[0].pageX, e.touches[0].pageY), 600); };
             aiDiv.ontouchend = () => clearTimeout(timer);
             aiDiv.ontouchmove = () => clearTimeout(timer);
-
             aiDiv.innerHTML += `<div class="replay-btn" onclick="core.speak('${final.replace(/'/g, "\\'").replace(/\n/g, ' ')}', true)">🔈 Replay</div>`;
 
             sess.msgs.push({role:'assistant', content:final});
