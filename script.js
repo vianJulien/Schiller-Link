@@ -23,49 +23,50 @@ const ui = {
         document.getElementById('meta-theme').setAttribute('content', isDark ? '#0d1117' : '#ffffff');
     },
     
-    // 更新 updateTune 函数，用于滑动条实时更新显示
+    // 滑动条实时更新显示数值
     updateTune: (key, val) => {
-        document.getElementById('val-'+key).innerText = val;
+        const el = document.getElementById('val-' + key);
+        if (el) el.innerText = val;
     },
 
     nav: (p) => {
-        document.querySelectorAll('.page').forEach(e=>e.classList.remove('active'));
-        document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active'));
-        // 兼容 tune 页面，如果 p 是 tune，显示 tune page，不激活底部nav
+        document.querySelectorAll('.page').forEach(e => e.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active'));
+        // 兼容 tune 页面
         if (p === 'tune') {
             document.getElementById('p-tune').classList.add('active');
         } else {
-            document.getElementById(p==='chat'?'p-chat':'p-cal').classList.add('active');
-            document.querySelectorAll('.nav-item')[p==='chat'?0:1].classList.add('active');
+            document.getElementById(p === 'chat' ? 'p-chat' : 'p-cal').classList.add('active');
+            document.querySelectorAll('.nav-item')[p === 'chat' ? 0 : 1].classList.add('active');
         }
     },
-    modal: (s) => { document.getElementById('set-modal').style.display = s?'flex':'none'; if(s) core.renderMemCards(); },
+    modal: (s) => { document.getElementById('set-modal').style.display = s ? 'flex' : 'none'; if (s) core.renderMemCards(); },
     tab: (t) => {
-        document.querySelectorAll('.tab').forEach(e=>e.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(e=>e.classList.remove('active'));
-        document.getElementById('tab-'+t).classList.add('active');
-        const map = {'conn':0, 'voice':1, 'mem':2, 'bkp':3};
+        document.querySelectorAll('.tab').forEach(e => e.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(e => e.classList.remove('active'));
+        document.getElementById('tab-' + t).classList.add('active');
+        const map = { 'conn': 0, 'voice': 1, 'mem': 2, 'bkp': 3 };
         document.querySelectorAll('.tab')[map[t]].classList.add('active');
     },
     toggleSidebar: (open) => {
         const sb = document.getElementById('sidebar'); const ov = document.getElementById('sidebar-overlay');
-        if(open) { sb.classList.add('open'); ov.style.display='block'; core.renderSessionList(); }
-        else { sb.classList.remove('open'); ov.style.display='none'; }
+        if (open) { sb.classList.add('open'); ov.style.display = 'block'; core.renderSessionList(); }
+        else { sb.classList.remove('open'); ov.style.display = 'none'; }
     },
-    bubble: (role, txt, img=null, file=null, msgIndex=null) => {
-        const d = document.createElement('div'); d.className = `bubble ${role==='user'?'u-msg':'a-msg'}`;
+    bubble: (role, txt, img = null, file = null, msgIndex = null) => {
+        const d = document.createElement('div'); d.className = `bubble ${role === 'user' ? 'u-msg' : 'a-msg'}`;
         let content = "";
-        if(img) content += `<img src="${img}">`;
-        if(file) content += `<div class="file-tag">📄 ${file}</div>`;
-        content += role==='user' ? txt : marked.parse(txt);
-        
+        if (img) content += `<img src="${img}">`;
+        if (file) content += `<div class="file-tag">📄 ${file}</div>`;
+        content += role === 'user' ? txt : marked.parse(txt);
+
         const now = new Date();
-        const tStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+        const tStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
         content += `<div class="time">${tStr}</div>`;
-        
-        if(role !== 'user') {
-             const rawTxt = txt.replace(/"/g, '&quot;');
-             content += `<div class="replay-btn" onclick="core.speak('${rawTxt}', true)">🔈 Replay</div>`;
+
+        if (role !== 'user') {
+            const rawTxt = txt.replace(/"/g, '&quot;');
+            content += `<div class="replay-btn" onclick="core.speak('${rawTxt}', true)">🔈 Replay</div>`;
         }
         d.innerHTML = content;
 
@@ -75,7 +76,7 @@ const ui = {
         d.ontouchend = () => clearTimeout(timer);
         d.ontouchmove = () => clearTimeout(timer);
 
-        const box = document.getElementById('chat-box'); box.appendChild(d); box.scrollTop=box.scrollHeight;
+        const box = document.getElementById('chat-box'); box.appendChild(d); box.scrollTop = box.scrollHeight;
         return d;
     },
     showCtx: (x, y, role, msgIndex) => {
@@ -90,57 +91,74 @@ const ui = {
         m.style.top = y + 'px';
     },
     hideCtx: () => document.getElementById('ctx-menu').style.display = 'none',
-    
+
     addPreview: (type, src, name) => {
         const p = document.getElementById('preview-area');
         p.style.display = 'flex';
-        const d = document.createElement('div'); d.className='preview-item';
-        if(type==='img') d.innerHTML = `<img src="${src}" class="preview-img"><span class="close-prev" onclick="core.clearPreview('img')">×</span>`;
+        const d = document.createElement('div'); d.className = 'preview-item';
+        if (type === 'img') d.innerHTML = `<img src="${src}" class="preview-img"><span class="close-prev" onclick="core.clearPreview('img')">×</span>`;
         else d.innerHTML = `📄 ${name} <span class="close-prev" onclick="core.clearPreview('file')">×</span>`;
         p.appendChild(d);
     },
-    clearPreviews: () => { document.getElementById('preview-area').innerHTML=''; document.getElementById('preview-area').style.display='none'; }
+    clearPreviews: () => { document.getElementById('preview-area').innerHTML = ''; document.getElementById('preview-area').style.display = 'none'; }
 };
 
 const core = {
-    // 新增 p_warm 等5个性格参数，默认50
-    conf: { url:'', key:'', model:'', persona:'', temp:'1.0', maxTokens:'0', p_warm:50, p_direct:50, p_intel:50, p_empathy:50, p_obed:50 },
+    // [Updated] 加入 freq 和 pres 参数
+    conf: { 
+        url: '', key: '', model: '', persona: '', temp: '1.0', maxTokens: '0', 
+        freq: '0', pres: '0', // 新增
+        p_warm: 50, p_direct: 50, p_intel: 50, p_empathy: 50, p_obed: 50 
+    },
     voiceConf: { mode: 'native', key: '', voice: 'onyx' },
     mems: [], evts: [], sessions: {}, currSessId: null,
-    autoTTS: false, 
+    autoTTS: false,
     currUpload: { img: null, fileText: null, fileName: null },
 
     init: () => {
         ui.initTheme();
         // 加载所有配置
-        Object.keys(core.conf).forEach(k => core.conf[k] = localStorage.getItem('v11_'+k) || core.conf[k]);
-        
-        if(!core.conf.url) core.preset('ds');
-        if(!core.conf.persona) core.conf.persona = "你叫艾德里安·席勒，教授。";
-        
-        document.getElementById('c-url').value = core.conf.url;
-        document.getElementById('c-key').value = core.conf.key;
-        document.getElementById('c-mod').value = core.conf.model;
-        document.getElementById('c-per').value = core.conf.persona;
-        document.getElementById('c-temp').value = core.conf.temp;
-        document.getElementById('t-val').innerText = core.conf.temp;
-        document.getElementById('c-max').value = core.conf.maxTokens;
+        Object.keys(core.conf).forEach(k => {
+            const val = localStorage.getItem('v11_' + k);
+            if(val !== null) core.conf[k] = val;
+        });
+
+        if (!core.conf.url) core.preset('ds');
+        if (!core.conf.persona) core.conf.persona = "你叫艾德里安·席勒，教授。";
+
+        // 初始化连接设置界面
+        const setVal = (id, v) => { const el = document.getElementById(id); if(el) el.value = v; };
+        const setTxt = (id, v) => { const el = document.getElementById(id); if(el) el.innerText = v; };
+
+        setVal('c-url', core.conf.url);
+        setVal('c-key', core.conf.key);
+        setVal('c-mod', core.conf.model);
+        setVal('c-per', core.conf.persona);
+        setVal('c-temp', core.conf.temp);
+        setTxt('t-val', core.conf.temp);
+        setVal('c-max', core.conf.maxTokens);
+
+        // [Updated] 初始化新增的惩罚参数界面
+        setVal('c-freq', core.conf.freq);
+        setTxt('val-freq', core.conf.freq);
+        setVal('c-pres', core.conf.pres);
+        setTxt('val-pres', core.conf.pres);
 
         // 初始化性格滑块显示
         ['warm', 'direct', 'intel', 'empathy', 'obed'].forEach(k => {
-            const val = core.conf['p_'+k];
-            document.getElementById('rng-'+k).value = val;
-            document.getElementById('val-'+k).innerText = val;
+            const val = core.conf['p_' + k];
+            setVal('rng-' + k, val);
+            setTxt('val-' + k, val);
         });
 
-        const v = localStorage.getItem('v11_voice'); if(v) core.voiceConf = JSON.parse(v); core.updateVoiceUI();
-        
-        try { core.mems = JSON.parse(localStorage.getItem('v11_mems') || '[]'); } catch(e){}
-        try { core.evts = JSON.parse(localStorage.getItem('v11_evts') || '[]'); } catch(e){}
-        try { core.sessions = JSON.parse(localStorage.getItem('v11_sessions') || '{}'); } catch(e){}
+        const v = localStorage.getItem('v11_voice'); if (v) core.voiceConf = JSON.parse(v); core.updateVoiceUI();
+
+        try { core.mems = JSON.parse(localStorage.getItem('v11_mems') || '[]'); } catch (e) { }
+        try { core.evts = JSON.parse(localStorage.getItem('v11_evts') || '[]'); } catch (e) { }
+        try { core.sessions = JSON.parse(localStorage.getItem('v11_sessions') || '{}'); } catch (e) { }
         core.currSessId = localStorage.getItem('v11_curr_id');
-        
-        if(!core.currSessId || !core.sessions[core.currSessId]) core.newSession();
+
+        if (!core.currSessId || !core.sessions[core.currSessId]) core.newSession();
         else core.loadSession(core.currSessId);
 
         core.renderEvt();
@@ -149,17 +167,20 @@ const core = {
 
     clockTick: () => {
         const n = new Date();
-        const cn = new Date(n.getTime()+(n.getTimezoneOffset()*60000)+(3600000*8));
-        const ny = new Date(n.toLocaleString("en-US",{timeZone:"America/New_York"}));
-        document.getElementById('t-cn').innerText = `${String(cn.getHours()).padStart(2,'0')}:${String(cn.getMinutes()).padStart(2,'0')}`;
-        document.getElementById('t-ny').innerText = `${String(ny.getHours()).padStart(2,'0')}:${String(ny.getMinutes()).padStart(2,'0')}`;
+        const cn = new Date(n.getTime() + (n.getTimezoneOffset() * 60000) + (3600000 * 8));
+        const ny = new Date(n.toLocaleString("en-US", { timeZone: "America/New_York" }));
+        const elCn = document.getElementById('t-cn'); if(elCn) elCn.innerText = `${String(cn.getHours()).padStart(2, '0')}:${String(cn.getMinutes()).padStart(2, '0')}`;
+        const elNy = document.getElementById('t-ny'); if(elNy) elNy.innerText = `${String(ny.getHours()).padStart(2, '0')}:${String(ny.getMinutes()).padStart(2, '0')}`;
     },
 
     preset: (t) => {
-        const d = t==='ds' ? ['https://api.deepseek.com/chat/completions','deepseek-chat'] : ['https://api.openai.com/v1/chat/completions','gpt-4o'];
-        document.getElementById('c-url').value = d[0]; document.getElementById('c-mod').value = d[1];
+        const d = t === 'ds' ? ['https://api.deepseek.com/chat/completions', 'deepseek-chat'] : ['https://api.openai.com/v1/chat/completions', 'gpt-4o'];
+        const elUrl = document.getElementById('c-url'); if(elUrl) elUrl.value = d[0];
+        const elMod = document.getElementById('c-mod'); if(elMod) elMod.value = d[1];
     },
+    
     saveConn: () => {
+        // [Updated] 获取所有参数，包括新增的 freq 和 pres
         core.conf.url = document.getElementById('c-url').value;
         core.conf.key = document.getElementById('c-key').value;
         core.conf.model = document.getElementById('c-mod').value;
@@ -167,24 +188,28 @@ const core = {
         core.conf.temp = document.getElementById('c-temp').value;
         core.conf.maxTokens = document.getElementById('c-max').value;
         
-        // 仅保存连接设置，不覆盖性格参数
+        // 获取新增参数
+        const elFreq = document.getElementById('c-freq'); if(elFreq) core.conf.freq = elFreq.value;
+        const elPres = document.getElementById('c-pres'); if(elPres) core.conf.pres = elPres.value;
+
+        // 仅保存连接设置，不覆盖性格参数 (性格参数由 testPersonality 保存)
         Object.keys(core.conf).forEach(k => {
-            if(!k.startsWith('p_')) localStorage.setItem('v11_'+k, core.conf[k]);
+            if (!k.startsWith('p_')) localStorage.setItem('v11_' + k, core.conf[k]);
         });
         alert('Saved.');
     },
-    
+
     // 专门用于保存性格参数并测试
     testPersonality: () => {
         ['warm', 'direct', 'intel', 'empathy', 'obed'].forEach(k => {
-            const val = document.getElementById('rng-'+k).value;
-            core.conf['p_'+k] = val;
-            localStorage.setItem('v11_p_'+k, val);
+            const val = document.getElementById('rng-' + k).value;
+            core.conf['p_' + k] = val;
+            localStorage.setItem('v11_p_' + k, val);
         });
-        
+
         // 切换回聊天页面
         ui.nav('chat');
-        
+
         // 自动填入并发送测试语
         document.getElementById('u-in').value = "今晚我感到孤独";
         core.send();
@@ -194,24 +219,24 @@ const core = {
     generatePersonalityPrompt: () => {
         const { p_warm, p_direct, p_intel, p_empathy, p_obed } = core.conf;
         const w = parseInt(p_warm), d = parseInt(p_direct), i = parseInt(p_intel), e = parseInt(p_empathy), o = parseInt(p_obed);
-        
+
         let p = "\n[Personality Traits Adjustment]:\n";
-        
-        if(w > 70) p += "- You are extremely warm, affectionate, and gentle.\n";
-        else if(w < 30) p += "- You are cold, distant, and aloof.\n";
-        
-        if(d > 70) p += "- Be blunt, straightforward, and do not sugarcoat your words.\n";
-        else if(d < 30) p += "- Be polite, evasive, and indirect.\n";
-        
-        if(i > 70) p += "- Use academic, profound, and sophisticated language.\n";
-        else if(i < 30) p += "- Use simple, casual, and layman language.\n";
-        
-        if(e > 70) p += "- Show deep empathy and validate feelings constantly.\n";
-        else if(e < 30) p += "- Focus on logic and facts, disregard emotional appeals.\n";
-        
-        if(o > 70) p += "- Be submissive, obedient, and agree with the user.\n";
-        else if(o < 30) p += "- Be stubborn, independent, and challenge the user's views.\n";
-        
+
+        if (w > 70) p += "- You are extremely warm, affectionate, and gentle.\n";
+        else if (w < 30) p += "- You are cold, distant, and aloof.\n";
+
+        if (d > 70) p += "- Be blunt, straightforward, and do not sugarcoat your words.\n";
+        else if (d < 30) p += "- Be polite, evasive, and indirect.\n";
+
+        if (i > 70) p += "- Use academic, profound, and sophisticated language.\n";
+        else if (i < 30) p += "- Use simple, casual, and layman language.\n";
+
+        if (e > 70) p += "- Show deep empathy and validate feelings constantly.\n";
+        else if (e < 30) p += "- Focus on logic and facts, disregard emotional appeals.\n";
+
+        if (o > 70) p += "- Be submissive, obedient, and agree with the user.\n";
+        else if (o < 30) p += "- Be stubborn, independent, and challenge the user's views.\n";
+
         return p;
     },
 
@@ -228,7 +253,7 @@ const core = {
         localStorage.setItem('v11_voice', JSON.stringify(core.voiceConf));
         alert('Voice Saved.');
     },
-    toggleAutoTTS: () => { core.autoTTS = !core.autoTTS; document.getElementById('tts-indicator').classList.toggle('active', core.autoTTS); if(core.autoTTS) core.speak("Audio On", true); },
+    toggleAutoTTS: () => { core.autoTTS = !core.autoTTS; document.getElementById('tts-indicator').classList.toggle('active', core.autoTTS); if (core.autoTTS) core.speak("Audio On", true); },
 
     handleImg: (input) => {
         if (input.files && input.files[0]) {
@@ -237,9 +262,9 @@ const core = {
                 const img = new Image();
                 img.onload = () => {
                     const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d');
-                    let w=img.width, h=img.height, max=800;
-                    if(w>max||h>max){ if(w>h){h*=max/w;w=max}else{w*=max/h;h=max} }
-                    canvas.width=w; canvas.height=h; ctx.drawImage(img,0,0,w,h);
+                    let w = img.width, h = img.height, max = 800;
+                    if (w > max || h > max) { if (w > h) { h *= max / w; w = max } else { w *= max / h; h = max } }
+                    canvas.width = w; canvas.height = h; ctx.drawImage(img, 0, 0, w, h);
                     core.currUpload.img = canvas.toDataURL('image/jpeg', 0.7);
                     ui.addPreview('img', core.currUpload.img, '');
                 };
@@ -255,7 +280,7 @@ const core = {
             let text = "";
             ui.addPreview('file', null, "Parsing " + name + "...");
             try {
-                if(name.endsWith('.pdf')) {
+                if (name.endsWith('.pdf')) {
                     const arrayBuffer = await f.arrayBuffer();
                     const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
                     for (let i = 1; i <= pdf.numPages; i++) {
@@ -263,25 +288,25 @@ const core = {
                         const content = await page.getTextContent();
                         text += content.items.map(item => item.str).join(' ') + "\n";
                     }
-                } else if(name.endsWith('.docx')) {
+                } else if (name.endsWith('.docx')) {
                     const arrayBuffer = await f.arrayBuffer();
-                    const result = await mammoth.extractRawText({arrayBuffer: arrayBuffer});
+                    const result = await mammoth.extractRawText({ arrayBuffer: arrayBuffer });
                     text = result.value;
                 } else {
                     text = await f.text();
                 }
                 core.currUpload.fileText = text; core.currUpload.fileName = name;
                 ui.clearPreviews(); ui.addPreview('file', null, name);
-            } catch(e) {
+            } catch (e) {
                 alert("Parse Error: " + e.message); ui.clearPreviews();
             }
         }
     },
     clearPreview: (t) => {
-        if(t==='img') core.currUpload.img = null;
-        if(t==='file') { core.currUpload.fileText = null; core.currUpload.fileName = null; }
+        if (t === 'img') core.currUpload.img = null;
+        if (t === 'file') { core.currUpload.fileText = null; core.currUpload.fileName = null; }
         ui.clearPreviews();
-        document.getElementById('img-input').value=''; document.getElementById('file-input').value='';
+        document.getElementById('img-input').value = ''; document.getElementById('file-input').value = '';
     },
     editMsg: (idx) => {
         ui.hideCtx(); if (idx == null) return;
@@ -293,152 +318,176 @@ const core = {
         core.saveSessions(); core.loadSession(core.currSessId);
     },
     regenerate: (idx) => {
-        ui.hideCtx(); const sess = core.sessions[core.currSessId]; if(!sess || sess.msgs.length === 0) return;
-        if (idx == null) idx = sess.msgs.length - 1; let userIdx = idx - 1; if (userIdx < 0) return; 
+        ui.hideCtx(); const sess = core.sessions[core.currSessId]; if (!sess || sess.msgs.length === 0) return;
+        if (idx == null) idx = sess.msgs.length - 1; let userIdx = idx - 1; if (userIdx < 0) return;
         const lastUserMsg = sess.msgs[userIdx];
         sess.msgs = sess.msgs.slice(0, userIdx);
         core.saveSessions(); core.loadSession(core.currSessId);
-        if(lastUserMsg) {
+        if (lastUserMsg) {
             document.getElementById('u-in').value = lastUserMsg.content;
-            if(lastUserMsg.img) { core.currUpload.img = lastUserMsg.img; ui.addPreview('img', lastUserMsg.img, ''); }
-            if(lastUserMsg.file) { core.currUpload.fileName = lastUserMsg.file; ui.addPreview('file', null, lastUserMsg.file); }
+            if (lastUserMsg.img) { core.currUpload.img = lastUserMsg.img; ui.addPreview('img', lastUserMsg.img, ''); }
+            if (lastUserMsg.file) { core.currUpload.fileName = lastUserMsg.file; ui.addPreview('file', null, lastUserMsg.file); }
             core.send();
         }
     },
     editSessTitle: (id, e) => {
-        e.stopPropagation(); const s = core.sessions[id]; if(!s) return;
+        e.stopPropagation(); const s = core.sessions[id]; if (!s) return;
         const newTitle = prompt('重命名当前档案:', s.title);
-        if(newTitle !== null && newTitle.trim() !== '') {
+        if (newTitle !== null && newTitle.trim() !== '') {
             s.title = newTitle.trim(); core.saveSessions(); core.renderSessionList();
-            if(core.currSessId === id) document.getElementById('header-title').innerText = s.title;
+            if (core.currSessId === id) document.getElementById('header-title').innerText = s.title;
         }
     },
 
     send: async () => {
         const el = document.getElementById('u-in'); const txt = el.value.trim();
-        if((!txt && !core.currUpload.img && !core.currUpload.fileText) || !core.conf.key) return;
-        
-        const sess = core.sessions[core.currSessId];
-        if(sess.msgs.length===0 && txt) { sess.title = txt.substring(0,12)+'...'; document.getElementById('header-title').innerText = sess.title; }
+        if ((!txt && !core.currUpload.img && !core.currUpload.fileText) || !core.conf.key) return;
 
-        sess.msgs.push({role:'user', content:txt, img:core.currUpload.img, file:core.currUpload.fileName});
+        const sess = core.sessions[core.currSessId];
+        if (sess.msgs.length === 0 && txt) { sess.title = txt.substring(0, 12) + '...'; document.getElementById('header-title').innerText = sess.title; }
+
+        sess.msgs.push({ role: 'user', content: txt, img: core.currUpload.img, file: core.currUpload.fileName });
         const userIdx = sess.msgs.length - 1;
         ui.bubble('user', txt, core.currUpload.img, core.currUpload.fileName, userIdx);
-        
+
         let finalText = txt;
-        if(core.currUpload.fileText) finalText += `\n\n[FILE CONTENT: ${core.currUpload.fileName}]\n${core.currUpload.fileText}\n[END FILE]`;
+        if (core.currUpload.fileText) finalText += `\n\n[FILE CONTENT: ${core.currUpload.fileName}]\n${core.currUpload.fileText}\n[END FILE]`;
         let apiContent;
         if (core.currUpload.img) {
-            apiContent = [ { type: "text", text: finalText || "Image." }, { type: "image_url", image_url: { url: core.currUpload.img } } ];
+            apiContent = [{ type: "text", text: finalText || "Image." }, { type: "image_url", image_url: { url: core.currUpload.img } }];
         } else { apiContent = finalText; }
 
         core.saveSessions();
-        const wasImg = core.currUpload.img; core.currUpload = { img:null, fileText:null, fileName:null };
-        el.value=''; ui.clearPreviews();
-        
+        const wasImg = core.currUpload.img; core.currUpload = { img: null, fileText: null, fileName: null };
+        el.value = ''; ui.clearPreviews();
+
         const aiIdx = sess.msgs.length; const aiDiv = ui.bubble('ai', 'Thinking...', null, null, aiIdx);
 
-        // --- 核心更新：强化的 System Prompt，包含时间增强和性格微调 ---
         const now = new Date();
-        const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-        const timeString = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')} ${days[now.getDay()]}`;
+        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const timeString = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')} ${days[now.getDay()]}`;
 
         let sys = core.conf.persona + `\n[Current Date: ${timeString}]\n`;
-        sys += core.generatePersonalityPrompt(); // 注入性格参数
+        sys += core.generatePersonalityPrompt();
 
-        if(core.evts.length) sys += `\n[Schedule]:\n${core.evts.map(e=>`- ${e.t} ${e.d} (${e.n})`).join('\n')}`;
+        if (core.evts.length) sys += `\n[Schedule]:\n${core.evts.map(e => `- ${e.t} ${e.d} (${e.n})`).join('\n')}`;
         const hits = core.mems.filter(m => m.keys.some(k => txt.includes(k)));
-        if(hits.length) sys += `\n[Memory]:\n${hits.map(h=>`- ${h.info}`).join('\n')}`;
+        if (hits.length) sys += `\n[Memory]:\n${hits.map(h => `- ${h.info}`).join('\n')}`;
 
-        const apiMsgs = [{role:'system', content:sys}];
+        const apiMsgs = [{ role: 'system', content: sys }];
         sess.msgs.forEach(m => {
-            if(m === sess.msgs[sess.msgs.length-1]) apiMsgs.push({role:'user', content: apiContent});
-            else apiMsgs.push({role:m.role, content:m.content + (m.file?` [File: ${m.file} sent]`:'')});
+            if (m === sess.msgs[sess.msgs.length - 1]) apiMsgs.push({ role: 'user', content: apiContent });
+            else apiMsgs.push({ role: m.role, content: m.content + (m.file ? ` [File: ${m.file} sent]` : '') });
         });
 
-        if(wasImg && core.conf.url.includes('deepseek')) { aiDiv.innerHTML = "Error: DeepSeek cannot see images."; sess.msgs.pop(); return; }
+        if (wasImg && core.conf.url.includes('deepseek')) { aiDiv.innerHTML = "Error: DeepSeek cannot see images."; sess.msgs.pop(); return; }
 
         try {
             const reqBody = { model: core.conf.model, messages: apiMsgs, stream: true };
             const tempVal = parseFloat(core.conf.temp); if (!isNaN(tempVal)) reqBody.temperature = tempVal;
             const maxVal = parseInt(core.conf.maxTokens); if (!isNaN(maxVal) && maxVal > 0) reqBody.max_tokens = maxVal;
 
+            // [Updated] 核心：发送时携带频率和存在惩罚参数
+            const freqVal = parseFloat(core.conf.freq); if (!isNaN(freqVal)) reqBody.frequency_penalty = freqVal;
+            const presVal = parseFloat(core.conf.pres); if (!isNaN(presVal)) reqBody.presence_penalty = presVal;
+
             const res = await fetch(core.conf.url, {
-                method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${core.conf.key}`},
+                method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${core.conf.key}` },
                 body: JSON.stringify(reqBody)
             });
             const r = res.body.getReader(); const dec = new TextDecoder();
-            let final = ''; aiDiv.innerHTML='';
-            while(true) {
-                const {done,value} = await r.read(); if(done) break;
-                const chunk = dec.decode(value,{stream:true});
+            let final = ''; aiDiv.innerHTML = '';
+            while (true) {
+                const { done, value } = await r.read(); if (done) break;
+                const chunk = dec.decode(value, { stream: true });
                 chunk.split('\n').forEach(l => {
-                    if(l.startsWith('data: ') && l!=='data: [DONE]') {
-                        try { final += JSON.parse(l.slice(6)).choices[0].delta.content||''; aiDiv.innerHTML = marked.parse(final); } catch(e){}
+                    if (l.startsWith('data: ') && l !== 'data: [DONE]') {
+                        try { final += JSON.parse(l.slice(6)).choices[0].delta.content || ''; aiDiv.innerHTML = marked.parse(final); } catch (e) { }
                     }
                 });
                 document.getElementById('chat-box').scrollTop = 99999;
             }
-            aiDiv.innerHTML += `<div class="time">${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}</div>`;
+            aiDiv.innerHTML += `<div class="time">${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}</div>`;
             aiDiv.oncontextmenu = (e) => { e.preventDefault(); ui.showCtx(e.pageX, e.pageY, 'ai', aiIdx); };
             let timer;
             aiDiv.ontouchstart = (e) => { timer = setTimeout(() => ui.showCtx(e.touches[0].pageX, e.touches[0].pageY, 'ai', aiIdx), 1000); };
             aiDiv.ontouchend = () => clearTimeout(timer); aiDiv.ontouchmove = () => clearTimeout(timer);
             aiDiv.innerHTML += `<div class="replay-btn" onclick="core.speak('${final.replace(/'/g, "\\'").replace(/\n/g, ' ')}', true)">🔈 Replay</div>`;
-            sess.msgs.push({role:'assistant', content:final});
+            sess.msgs.push({ role: 'assistant', content: final });
             core.saveSessions();
-            if(core.autoTTS) core.speak(final);
-        } catch(e) { aiDiv.innerHTML = 'Error: '+e.message; }
+            if (core.autoTTS) core.speak(final);
+        } catch (e) { aiDiv.innerHTML = 'Error: ' + e.message; }
     },
-    // ... 其他函数保持不变 ...
-    speak: async (text, force=false) => {
-        if(!core.autoTTS && !force) return;
+
+    speak: async (text, force = false) => {
+        if (!core.autoTTS && !force) return;
         const plain = text.replace(/[*#`]/g, '');
-        if(core.voiceConf.mode === 'native') {
+        if (core.voiceConf.mode === 'native') {
             const u = new SpeechSynthesisUtterance(plain);
             const voices = speechSynthesis.getVoices();
             const zh = voices.find(v => v.lang.includes('zh'));
-            if(zh) u.voice = zh;
+            if (zh) u.voice = zh;
             speechSynthesis.speak(u);
         } else {
             const k = core.voiceConf.key || core.conf.key;
-            if(!k) return;
+            if (!k) return;
             try {
                 const res = await fetch('https://api.openai.com/v1/audio/speech', {
                     method: 'POST', headers: { 'Authorization': `Bearer ${k}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ model: "tts-1", input: plain, voice: core.voiceConf.voice })
                 });
                 const blob = await res.blob(); new Audio(URL.createObjectURL(blob)).play();
-            } catch(e) {}
+            } catch (e) { }
         }
     },
-    newSession: () => { const id = Date.now().toString(); core.sessions[id] = {id, title:'New Chat', msgs:[]}; core.currSessId=id; core.saveSessions(); core.loadSession(id); ui.toggleSidebar(false); },
-    loadSession: (id) => { if(!core.sessions[id]) return; core.currSessId=id; localStorage.setItem('v11_curr_id', id); document.getElementById('header-title').innerText=core.sessions[id].title; const box=document.getElementById('chat-box'); box.innerHTML=''; core.sessions[id].msgs.forEach((m, i)=>ui.bubble(m.role==='assistant'?'ai':'user', m.content, m.img, m.file, i)); },
+    newSession: () => { const id = Date.now().toString(); core.sessions[id] = { id, title: 'New Chat', msgs: [] }; core.currSessId = id; core.saveSessions(); core.loadSession(id); ui.toggleSidebar(false); },
+    loadSession: (id) => { if (!core.sessions[id]) return; core.currSessId = id; localStorage.setItem('v11_curr_id', id); document.getElementById('header-title').innerText = core.sessions[id].title; const box = document.getElementById('chat-box'); box.innerHTML = ''; core.sessions[id].msgs.forEach((m, i) => ui.bubble(m.role === 'assistant' ? 'ai' : 'user', m.content, m.img, m.file, i)); },
     saveSessions: () => localStorage.setItem('v11_sessions', JSON.stringify(core.sessions)),
-    renderSessionList: () => { 
-        const list=document.getElementById('session-list'); 
-        list.innerHTML=''; 
-        Object.keys(core.sessions).sort().reverse().forEach(id=>{ 
-            const s=core.sessions[id]; 
-            const div=document.createElement('div'); 
-            div.className=`sb-item ${id===core.currSessId?'active':''}`; 
-            div.innerHTML=`
+    renderSessionList: () => {
+        const list = document.getElementById('session-list');
+        list.innerHTML = '';
+        Object.keys(core.sessions).sort().reverse().forEach(id => {
+            const s = core.sessions[id];
+            const div = document.createElement('div');
+            div.className = `sb-item ${id === core.currSessId ? 'active' : ''}`;
+            div.innerHTML = `
                 <span style="display:inline-block; max-width:70%; overflow:hidden; text-overflow:ellipsis; vertical-align:middle;">${s.title}</span>
                 <button class="sb-edit" onclick="core.editSessTitle('${id}', event)">✏️</button>
                 <button class="sb-del" onclick="core.delSess('${id}', event)">×</button>
-            `; 
-            div.onclick=()=>{core.loadSession(id);ui.toggleSidebar(false);}; 
-            list.appendChild(div); 
-        }); 
+            `;
+            div.onclick = () => { core.loadSession(id); ui.toggleSidebar(false); };
+            list.appendChild(div);
+        });
     },
-    delSess: (id, e) => { e.stopPropagation(); if(!confirm('Delete?')) return; delete core.sessions[id]; core.saveSessions(); if(core.currSessId===id) core.newSession(); else core.renderSessionList(); },
-    addMem: () => { const k=document.getElementById('new-mem-keys').value.trim(); const i=document.getElementById('new-mem-info').value.trim(); if(k&&i) { core.mems.push({keys:k.split(/[,，\s]+/).filter(k=>k), info:i}); localStorage.setItem('v11_mems', JSON.stringify(core.mems)); core.renderMemCards(); document.getElementById('new-mem-keys').value=''; document.getElementById('new-mem-info').value=''; } },
-    delMem: (i) => { core.mems.splice(i,1); localStorage.setItem('v11_mems', JSON.stringify(core.mems)); core.renderMemCards(); },
-    renderMemCards: () => { const b=document.getElementById('mem-list-container'); b.innerHTML=''; core.mems.forEach((m,i)=>{ b.innerHTML+=`<div class="mem-card"><div class="mem-keys"># ${m.keys.join(', ')}</div><div class="mem-info">${m.info}</div><button class="mem-del" onclick="core.delMem(${i})">×</button></div>`; }); },
-    addEv: async () => { const t=document.getElementById('ev-t').value; const d=document.getElementById('ev-txt').value; if(d) { const ev={id:Date.now(),t,d,n:'Reviewing...'}; core.evts.push(ev); core.evts.sort((a,b)=>a.t.localeCompare(b.t)); localStorage.setItem('v11_evts', JSON.stringify(core.evts)); core.renderEvt(); document.getElementById('ev-txt').value=''; if(core.conf.key) { try { const res=await fetch(core.conf.url,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${core.conf.key}`},body:JSON.stringify({model:core.conf.model,messages:[{role:'system',content:core.conf.persona},{role:'user',content:`Added: "${d}" at ${t}. Comment(Chinese, <15 chars):`}],stream:false})}); const j=await res.json(); ev.n=j.choices[0].message.content; localStorage.setItem('v11_evts',JSON.stringify(core.evts)); core.renderEvt(); } catch(e){} } } },
-    delEv: (id) => { core.evts=core.evts.filter(e=>e.id!==id); localStorage.setItem('v11_evts', JSON.stringify(core.evts)); core.renderEvt(); },
-    renderEvt: () => { const b=document.getElementById('evt-list'); b.innerHTML=''; core.evts.forEach(e=>{ b.innerHTML+=`<div class="evt"><div style="display:flex;justify-content:space-between"><b>${e.d}</b><span style="color:var(--accent)">${e.t}</span></div><div class="evt-n">${e.n}</div><button class="del" onclick="core.delEv(${e.id})">×</button></div>`; }); },
-    exportData: () => { const d={conf:core.conf,voice:core.voiceConf,mems:core.mems,evts:core.evts,sessions:core.sessions}; const b=new Blob([JSON.stringify(d,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='schiller_v11.json'; a.click(); },
-    importData: (i) => { const r=new FileReader(); r.onload=(e)=>{ try { const d=JSON.parse(e.target.result); if(d.conf)['url','key','model','persona'].forEach(k=>localStorage.setItem('v11_'+k,d.conf[k])); if(d.voice)localStorage.setItem('v11_voice',JSON.stringify(d.voice)); if(d.mems)localStorage.setItem('v11_mems',JSON.stringify(d.mems)); if(d.evts)localStorage.setItem('v11_evts',JSON.stringify(d.evts)); if(d.sessions)localStorage.setItem('v11_sessions',JSON.stringify(d.sessions)); alert('Restored'); location.reload(); } catch(err){alert('Error');} }; r.readAsText(i.files[0]); }
+    delSess: (id, e) => { e.stopPropagation(); if (!confirm('Delete?')) return; delete core.sessions[id]; core.saveSessions(); if (core.currSessId === id) core.newSession(); else core.renderSessionList(); },
+    addMem: () => { const k = document.getElementById('new-mem-keys').value.trim(); const i = document.getElementById('new-mem-info').value.trim(); if (k && i) { core.mems.push({ keys: k.split(/[,，\s]+/).filter(k => k), info: i }); localStorage.setItem('v11_mems', JSON.stringify(core.mems)); core.renderMemCards(); document.getElementById('new-mem-keys').value = ''; document.getElementById('new-mem-info').value = ''; } },
+    delMem: (i) => { core.mems.splice(i, 1); localStorage.setItem('v11_mems', JSON.stringify(core.mems)); core.renderMemCards(); },
+    renderMemCards: () => { const b = document.getElementById('mem-list-container'); b.innerHTML = ''; core.mems.forEach((m, i) => { b.innerHTML += `<div class="mem-card"><div class="mem-keys"># ${m.keys.join(', ')}</div><div class="mem-info">${m.info}</div><button class="mem-del" onclick="core.delMem(${i})">×</button></div>`; }); },
+    addEv: async () => { const t = document.getElementById('ev-t').value; const d = document.getElementById('ev-txt').value; if (d) { const ev = { id: Date.now(), t, d, n: 'Reviewing...' }; core.evts.push(ev); core.evts.sort((a, b) => a.t.localeCompare(b.t)); localStorage.setItem('v11_evts', JSON.stringify(core.evts)); core.renderEvt(); document.getElementById('ev-txt').value = ''; if (core.conf.key) { try { const res = await fetch(core.conf.url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${core.conf.key}` }, body: JSON.stringify({ model: core.conf.model, messages: [{ role: 'system', content: core.conf.persona }, { role: 'user', content: `Added: "${d}" at ${t}. Comment(Chinese, <15 chars):` }], stream: false }) }); const j = await res.json(); ev.n = j.choices[0].message.content; localStorage.setItem('v11_evts', JSON.stringify(core.evts)); core.renderEvt(); } catch (e) { } } } },
+    delEv: (id) => { core.evts = core.evts.filter(e => e.id !== id); localStorage.setItem('v11_evts', JSON.stringify(core.evts)); core.renderEvt(); },
+    renderEvt: () => { const b = document.getElementById('evt-list'); b.innerHTML = ''; core.evts.forEach(e => { b.innerHTML += `<div class="evt"><div style="display:flex;justify-content:space-between"><b>${e.d}</b><span style="color:var(--accent)">${e.t}</span></div><div class="evt-n">${e.n}</div><button class="del" onclick="core.delEv(${e.id})">×</button></div>`; }); },
+    exportData: () => { const d = { conf: core.conf, voice: core.voiceConf, mems: core.mems, evts: core.evts, sessions: core.sessions }; const b = new Blob([JSON.stringify(d, null, 2)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'schiller_v11.json'; a.click(); },
+    
+    // [Updated] 修复导入数据逻辑，兼容新旧参数
+    importData: (i) => {
+        const r = new FileReader();
+        r.onload = (e) => {
+            try {
+                const d = JSON.parse(e.target.result);
+                // 使用更通用的方式导入 conf，不再死板地列举 key
+                if (d.conf) {
+                     Object.keys(d.conf).forEach(k => {
+                        localStorage.setItem('v11_' + k, d.conf[k]);
+                     });
+                }
+                if (d.voice) localStorage.setItem('v11_voice', JSON.stringify(d.voice));
+                if (d.mems) localStorage.setItem('v11_mems', JSON.stringify(d.mems));
+                if (d.evts) localStorage.setItem('v11_evts', JSON.stringify(d.evts));
+                if (d.sessions) localStorage.setItem('v11_sessions', JSON.stringify(d.sessions));
+                alert('Restored'); location.reload();
+            } catch (err) { alert('Error: ' + err.message); }
+        };
+        r.readAsText(i.files[0]);
+    }
 };
 core.init();

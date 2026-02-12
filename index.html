@@ -141,28 +141,37 @@
             <div class="tab" onclick="ui.tab('bkp')">Data</div>
         </div>
 
-        <div id="tab-conn" class="tab-content active">
-            <button class="btn" onclick="ui.toggleTheme()" style="width:100%; margin-bottom:15px; background:var(--bg); color:var(--text); border:1px solid var(--accent); font-weight:bold;">
-                 Switch Theme (Day/Night)
-            </button>
-            <div class="row" style="display:flex;gap:10px;">
-                <button class="btn" style="flex:1" onclick="core.preset('ds')">DeepSeek</button>
-                <button class="btn" style="flex:1" onclick="core.preset('oa')">GPT-4o</button>
-            </div>
-            <label>Chat API Key</label><input type="password" id="c-key" class="inp">
-            <label>Endpoint</label><input type="text" id="c-url" class="inp">
-            <label>Model</label><input type="text" id="c-mod" class="inp">
-            <label>Persona</label><textarea id="c-per" class="inp" rows="3"></textarea>
-            
-            <div style="background:var(--card); padding:10px; border-radius:8px; border:1px solid var(--border); margin-bottom:12px;">
-                <label>Temperature: <span id="t-val" style="color:var(--accent)">1.0</span></label>
-                <input type="range" id="c-temp" class="inp" min="0" max="2" step="0.1" value="1.0" oninput="document.getElementById('t-val').innerText=this.value" style="padding:0; height:auto; margin-bottom:15px;">
-                <label>Max Tokens (0=Default)</label>
-                <input type="number" id="c-max" class="inp" value="0" style="margin-bottom:0;">
-            </div>
+       <div id="tab-conn" class="tab-content active">
+    <button class="btn" onclick="ui.toggleTheme()" style="width:100%; margin-bottom:15px; background:var(--bg); color:var(--text); border:1px solid var(--accent); font-weight:bold;">
+        🌗 Switch Theme (Day/Night)
+    </button>
 
-            <button class="btn primary" onclick="core.saveConn()">Save Config</button>
-        </div>
+    <div class="row" style="display:flex;gap:10px;">
+        <button class="btn" style="flex:1" onclick="core.preset('ds')">DeepSeek</button>
+        <button class="btn" style="flex:1" onclick="core.preset('oa')">GPT-4o</button>
+    </div>
+
+    <label>Chat API Key</label><input type="password" id="c-key" class="inp">
+    <label>Endpoint</label><input type="text" id="c-url" class="inp">
+    <label>Model</label><input type="text" id="c-mod" class="inp">
+    <label>Persona</label><textarea id="c-per" class="inp" rows="3"></textarea>
+    
+    <div style="background:var(--card); padding:10px; border-radius:8px; border:1px solid var(--border); margin-bottom:12px;">
+        <label>Temperature: <span id="t-val" style="color:var(--accent)">1.0</span> (发散度)</label>
+        <input type="range" id="c-temp" class="slider" min="0" max="2" step="0.1" value="1.0" oninput="document.getElementById('t-val').innerText=this.value">
+        
+        <label>Freq Penalty: <span id="val-freq" style="color:var(--accent)">0.0</span> (拒绝重复)</label>
+        <input type="range" id="c-freq" class="slider" min="-2" max="2" step="0.1" value="0" oninput="document.getElementById('val-freq').innerText=this.value">
+        
+        <label>Pres Penalty: <span id="val-pres" style="color:var(--accent)">0.0</span> (引入新词)</label>
+        <input type="range" id="c-pres" class="slider" min="-2" max="2" step="0.1" value="0" oninput="document.getElementById('val-pres').innerText=this.value">
+
+        <label style="margin-top:10px">Max Tokens (0=Default)</label>
+        <input type="number" id="c-max" class="inp" value="0" style="margin-bottom:0;">
+    </div>
+
+    <button class="btn primary" onclick="core.saveConn()">Save Config</button>
+</div>
         
         <div id="tab-voice" class="tab-content">
              <label>Voice Engine</label>
