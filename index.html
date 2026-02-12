@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
 <title>ChatVie V11</title>
+
+<link rel="manifest" href='data:application/manifest+json;base64,ewogICJuYW1lIjogIlNjaGlsbGVyIiwKICAic2hvcnRfbmFtZSI6ICJTY2hpbGxlciIsCiAgInN0YXJ0X3VybCI6ICIuIiwKICAiZGlzcGxheSI6ICJzdGFuZGFsb25lIiwKICAiYmFja2dyb3VuZF9jb2xvciI6ICIjZmZmZmZmIiwKICAidGhlbWVfY29sb3IiOiAiI2ZmZmZmZiIsCiAgImljb25zIjogW3sKICAgICJzcmMiOiAiaWNvbi5wbmciLAogICAgInNpemVzIjogIjE5MngxOTIiLAogICAgInR5cGUiOiAiaW1hZ2UvcG5nIgogIH1dCn0='>
+
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Schiller">
@@ -22,119 +25,57 @@
 </script>
 
 <style>
-    /* 配色方案重构：
-       默认定义为浅色模式 (Light Mode)
-       使用 GitHub Light 风格，对眼睛更友好
-    */
     :root { 
-        --bg: #ffffff; 
-        --card: #f6f8fa; 
-        --border: #d0d7de; 
-        --text: #24292f; 
-        --text-sub: #57606a;
-        --accent: #0969da; 
-        --accent-bg: rgba(9, 105, 218, 0.1);
-        --user: #0969da; 
-        --user-text: #ffffff;
-        --ai: #f6f8fa; 
-        --nav-bg: rgba(255,255,255,0.95);
-        --header-bg: rgba(255,255,255,0.95);
+        --bg: #ffffff; --card: #f6f8fa; --border: #d0d7de; --text: #24292f; --text-sub: #57606a;
+        --accent: #0969da; --accent-bg: rgba(9, 105, 218, 0.1); --user: #0969da; --user-text: #ffffff;
+        --ai: #f6f8fa; --nav-bg: rgba(255,255,255,0.95); --header-bg: rgba(255,255,255,0.95);
         --shadow: 0 1px 3px rgba(0,0,0,0.12);
     }
 
-    /* 深色模式适配 (Dark Mode) - 自动跟随系统 */
     @media (prefers-color-scheme: dark) {
         :root { 
-            --bg: #0d1117; 
-            --card: #161b22; 
-            --border: #30363d; 
-            --text: #c9d1d9; 
-            --text-sub: #8b949e;
-            --accent: #58a6ff; 
-            --accent-bg: rgba(88,166,255,0.15);
-            --user: #1f6feb; 
-            --user-text: #ffffff;
-            --ai: #21262d; 
-            --nav-bg: rgba(13,17,23,0.98);
-            --header-bg: rgba(13,17,23,0.95);
+            --bg: #0d1117; --card: #161b22; --border: #30363d; --text: #c9d1d9; --text-sub: #8b949e;
+            --accent: #58a6ff; --accent-bg: rgba(88,166,255,0.15); --user: #1f6feb; --user-text: #ffffff;
+            --ai: #21262d; --nav-bg: rgba(13,17,23,0.98); --header-bg: rgba(13,17,23,0.95);
             --shadow: none;
         }
     }
 
-    /* 使用 dvh 替代 vh 以获得更好的移动端视口体验 */
-    body { 
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; 
-        background: var(--bg); 
-        color: var(--text); 
-        margin: 0; 
-        height: 100dvh; /* Dynamic Viewport Height */
-        display: flex; 
-        flex-direction: column; 
-        overflow: hidden; 
-    }
+    body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; -webkit-tap-highlight-color: transparent; }
     
     /* Layout */
     .page { display:none; flex:1; flex-direction:column; overflow:hidden; position:relative; }
     .page.active { display:flex; }
-    
-    nav { 
-        height: 55px; 
-        background: var(--nav-bg); 
-        border-top: 1px solid var(--border); 
-        display: flex; 
-        z-index: 90; 
-        /* 适配底部安全区域 (iPhone X+ / Android Gesture Bar) */
-        padding-bottom: env(safe-area-inset-bottom);
-        backdrop-filter: blur(10px);
-    }
+    nav { height: 55px; background: var(--nav-bg); border-top: 1px solid var(--border); display: flex; z-index: 90; padding-bottom: env(safe-area-inset-bottom); backdrop-filter: blur(10px); }
     .nav-item { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; color: var(--text-sub); cursor:pointer; font-size: 0.9rem; }
     .nav-item.active { color:var(--accent); font-weight: 600; }
     
     /* Header */
-    header { 
-        padding: 12px 15px; 
-        background: var(--header-bg); 
-        border-bottom: 1px solid var(--border); 
-        display: flex; 
-        justify-content: space-between; 
-        align-items: center; 
-        z-index: 91; 
-        backdrop-filter: blur(10px);
-        /* 适配顶部状态栏 */
-        padding-top: max(12px, env(safe-area-inset-top));
-    }
+    header { padding: 12px 15px; background: var(--header-bg); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; z-index: 91; padding-top: max(12px, env(safe-area-inset-top)); backdrop-filter: blur(10px); }
     .h-btn { background:none; border:none; font-size:1.4rem; cursor:pointer; padding:5px; color:var(--text); transition: opacity 0.2s; }
-    .h-btn:active { opacity: 0.6; }
     h1 { margin:0; font-size:1.1rem; font-weight:600; letter-spacing:0.5px; }
 
-    /* Sidebar */
-    #sidebar-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:150; backdrop-filter: blur(2px); }
-    #sidebar { position:fixed; top:0; left:-280px; width:280px; height:100%; background:var(--card); border-right:1px solid var(--border); transition:left 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index:160; display:flex; flex-direction:column; box-shadow: 2px 0 12px rgba(0,0,0,0.1); }
-    #sidebar.open { left:0; }
-    .sb-header { padding:20px; border-bottom:1px solid var(--border); font-weight:bold; display:flex; justify-content:space-between; align-items: center; padding-top: max(20px, env(safe-area-inset-top)); }
-    .sb-list { flex:1; overflow-y:auto; padding:10px; }
-    .sb-item { padding:12px; margin-bottom:5px; border-radius:8px; cursor:pointer; color:var(--text-sub); transition:0.2s; position:relative; font-size:0.95rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .sb-item.active { background:var(--accent-bg); color:var(--accent); font-weight: 600; }
-    .sb-del { position:absolute; right:5px; top:10px; color:#f85149; background:none; border:none; display:none; font-size: 1.1rem; padding: 0 8px; }
-    .sb-item:hover .sb-del { display:block; }
-    .new-chat-btn { margin:15px; padding:12px; background:var(--accent); border:none; color:white; border-radius:8px; font-weight:bold; cursor:pointer; text-align:center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-
     /* Chat UI */
-    #chat-box { flex:1; overflow-y:auto; padding:15px; display:flex; flex-direction:column; gap:20px; scroll-behavior:smooth; background: var(--bg); }
+    #chat-box { flex:1; overflow-y:auto; padding:15px; display:flex; flex-direction:column; gap:20px; background: var(--bg); }
     .bubble { padding:12px 16px; border-radius:18px; max-width:88%; line-height:1.6; font-size:1rem; word-wrap:break-word; position:relative; box-shadow: var(--shadow); }
     .u-msg { align-self:flex-end; background:var(--user); color:var(--user-text); border-bottom-right-radius:4px; }
-    .a-msg { align-self:flex-start; background:var(--ai); border:1px solid var(--border); color: var(--text); border-bottom-left-radius:4px; padding-bottom:30px; }
+    .a-msg { align-self:flex-start; background:var(--ai); border:1px solid var(--border); color: var(--text); border-bottom-left-radius:4px; padding-bottom:28px; }
     .bubble img { max-width:100%; border-radius:8px; margin-top:8px; display:block; border: 1px solid rgba(0,0,0,0.1); }
-    .file-tag { display:inline-block; background:rgba(127,127,127,0.15); padding:4px 8px; border-radius:6px; font-size:0.85rem; margin-bottom:5px; border:1px solid rgba(127,127,127,0.2); }
-    .replay-btn { position:absolute; bottom:6px; right:10px; left: auto; font-size:0.75rem; cursor:pointer; opacity:0.6; padding: 2px 6px; border-radius: 4px; background: rgba(0,0,0,0.05); }
     
+    /* Time & Context Menu */
+    .time { display: block; font-size: 0.7rem; color: var(--text-sub); margin-top: 5px; opacity: 0.7; text-align: right; pointer-events: none; }
+    .u-msg .time { color: rgba(255,255,255,0.8); }
+    
+    #ctx-menu { display:none; position:fixed; background:var(--card); border:1px solid var(--border); border-radius:8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); z-index:1000; padding:5px 0; min-width:140px; animation: fadeIn 0.1s; }
+    .ctx-item { padding:12px 15px; font-size:0.9rem; cursor:pointer; color:var(--text); transition: background 0.2s; display:flex; align-items:center; gap:8px; }
+    .ctx-item:hover { background: var(--accent-bg); color: var(--accent); }
+
     /* Input Area */
     #input-area { padding:10px; background:var(--card); border-top:1px solid var(--border); display:flex; flex-direction:column; gap:5px; }
     .input-row { display:flex; gap:10px; align-items:flex-end; width:100%; }
-    #u-in { flex:1; background:var(--bg); border:1px solid var(--border); color:var(--text); padding:12px; border-radius:20px; resize:none; height:24px; outline:none; font-family:inherit; font-size: 1rem; max-height: 120px; transition: border-color 0.2s; }
+    #u-in { flex:1; background:var(--bg); border:1px solid var(--border); color:var(--text); padding:12px; border-radius:20px; resize:none; height:24px; outline:none; font-family:inherit; font-size: 1rem; max-height: 120px; }
     #u-in:focus { border-color: var(--accent); }
-    .icon-btn { font-size:1.3rem; background:none; border:none; cursor:pointer; padding:0 8px; color:var(--text-sub); line-height:48px; transition: color 0.2s; }
-    .icon-btn:hover { color: var(--accent); }
+    .icon-btn { font-size:1.3rem; background:none; border:none; cursor:pointer; padding:0 8px; color:var(--text-sub); line-height:48px; }
     
     /* Previews */
     #preview-area { display:none; gap:10px; padding:0 5px; flex-wrap:wrap; margin-bottom: 5px; }
@@ -142,50 +83,45 @@
     .preview-img { width:40px; height:40px; object-fit:cover; border-radius:4px; }
     .close-prev { cursor:pointer; color:#f85149; font-weight:bold; margin-left:5px; font-size: 1.1rem; }
 
-    /* Settings & Others */
+    /* Sidebar & Modal */
+    #sidebar-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:150; backdrop-filter: blur(2px); }
+    #sidebar { position:fixed; top:0; left:-280px; width:280px; height:100%; background:var(--card); border-right:1px solid var(--border); transition:left 0.3s; z-index:160; display:flex; flex-direction:column; }
+    #sidebar.open { left:0; }
+    .sb-item { padding:12px; margin:5px 10px; border-radius:8px; cursor:pointer; color:var(--text-sub); position:relative; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .sb-item.active { background:var(--accent-bg); color:var(--accent); font-weight:600; }
+    .sb-del { position:absolute; right:5px; top:10px; color:#f85149; background:none; border:none; display:none; font-size:1.1rem; }
+    .sb-item:hover .sb-del { display:block; }
+    
+    #set-modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:200; justify-content:center; align-items:flex-start; overflow-y:auto; backdrop-filter: blur(3px); }
+    .modal { background:var(--bg); width:90%; margin-top:10vh; padding:25px; border-radius:16px; border:1px solid var(--border); box-sizing:border-box; color: var(--text); }
+    .inp { width:100%; padding:12px; background:var(--card); border:1px solid var(--border); color:var(--text); border-radius:8px; margin-bottom:12px; outline:none; box-sizing:border-box; }
+    .btn { padding:10px 14px; border-radius:8px; border:1px solid var(--border); background:var(--card); color:var(--text); cursor:pointer; text-align:center; }
+    .btn.primary { background:#238636; color: white; border:none; width:100%; padding:12px; font-weight:bold; margin-top:20px; }
+    .tabs { display:flex; border-bottom:1px solid var(--border); margin-bottom:20px; }
+    .tab { flex:1; padding:12px; text-align:center; cursor:pointer; color:var(--text-sub); border-bottom:3px solid transparent; }
+    .tab.active { color:var(--accent); border-bottom-color:var(--accent); font-weight:bold; }
+    .tab-content { display:none; } .tab-content.active { display:block; }
+    
     .clock-row { display:flex; gap:10px; padding:15px; background:var(--card); border-bottom:1px solid var(--border); }
     .clock { flex:1; text-align:center; padding:12px; background:var(--bg); border-radius:12px; border:1px solid var(--border); box-shadow: var(--shadow); }
-    .clock-t { font-size:1.4rem; font-weight:bold; color:var(--accent); font-family:monospace; margin-bottom: 4px; }
-    .clock-l { font-size:0.8rem; color:var(--text-sub); text-transform: uppercase; letter-spacing: 1px; }
-    #evt-list { flex:1; overflow-y:auto; padding:15px; }
-    .evt { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:15px; margin-bottom:12px; position:relative; box-shadow: var(--shadow); }
-    .evt-n { font-size:0.9rem; color:var(--text-sub); margin-top:8px; padding-top:8px; border-top:1px dashed var(--border); font-style:italic; line-height: 1.4; }
-    .del { position:absolute; top:10px; right:10px; color:#f85149; background:none; border:none; font-size:1.2rem; cursor:pointer; opacity: 0.7; }
-    
-    #add-box { padding: 10px; background: var(--card); border-top: 1px solid var(--border); display: flex; gap: 8px; }
-
-    /* Modal */
-    #set-modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:200; justify-content:center; align-items:flex-start; overflow-y:auto; backdrop-filter: blur(3px); }
-    .modal { background:var(--bg); width:90%; margin-top:10vh; padding:25px; border-radius:16px; border:1px solid var(--border); box-shadow: 0 10px 25px rgba(0,0,0,0.2); box-sizing:border-box; margin-bottom:10vh; color: var(--text); }
-    .tabs { display:flex; border-bottom:1px solid var(--border); margin-bottom:20px; }
-    .tab { flex:1; padding:12px; text-align:center; cursor:pointer; color:var(--text-sub); border-bottom:3px solid transparent; font-size: 0.95rem; }
-    .tab.active { color:var(--accent); border-bottom-color:var(--accent); font-weight:bold; }
-    .tab-content { display:none; }
-    .tab-content.active { display:block; animation: fadeIn 0.2s; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-    
-    .row { display:flex; justify-content:space-between; margin-bottom:15px; gap:10px; }
-    .btn { padding:10px 14px; border-radius:8px; border:1px solid var(--border); background:var(--card); color:var(--text); cursor:pointer; text-align:center; font-size: 0.9rem; transition: background 0.2s; }
-    .btn:active { transform: scale(0.98); }
-    .btn.primary { background:#238636; color: white; border:none; width:100%; padding:12px; font-weight:bold; margin-top:20px; font-size: 1rem; }
-    .inp { width:100%; padding:12px; background:var(--card); border:1px solid var(--border); color:var(--text); border-radius:8px; margin-bottom:12px; box-sizing:border-box; outline:none; font-size: 0.95rem; }
-    .inp:focus { border-color: var(--accent); }
-    .mem-card { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:12px; margin-bottom:10px; position:relative; }
-    .mem-keys { color:var(--accent); font-size:0.85rem; font-weight:bold; margin-bottom:6px; }
-    .mem-del { position:absolute; top:8px; right:8px; color:#f85149; background:none; border:none; cursor:pointer; font-size: 1.1rem; }
+    .evt { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:15px; margin-bottom:12px; position:relative; }
     
     label { display: block; margin-bottom: 5px; font-size: 0.85rem; color: var(--text-sub); font-weight: 500; }
 </style>
 </head>
-<body>
+<body onclick="ui.hideCtx()">
+
+<div id="ctx-menu">
+    <div class="ctx-item" onclick="core.regenerate()">🔄 重新生成回答</div>
+</div>
 
 <div id="sidebar-overlay" onclick="ui.toggleSidebar(false)"></div>
 <div id="sidebar">
-    <div class="sb-header">
+    <div class="sb-header" style="padding:20px; border-bottom:1px solid var(--border); font-weight:bold; display:flex; justify-content:space-between; align-items:center; padding-top:max(20px, env(safe-area-inset-top));">
         <span>ARCHIVES</span> <span onclick="ui.toggleSidebar(false)" style="cursor:pointer; padding:5px;">✕</span>
     </div>
-    <button class="new-chat-btn" onclick="core.newSession()">+ New Chat</button>
-    <div class="sb-list" id="session-list"></div>
+    <button class="btn" style="margin:15px; background:var(--accent); color:white; border:none; font-weight:bold;" onclick="core.newSession()">+ New Chat</button>
+    <div class="sb-list" id="session-list" style="flex:1; overflow-y:auto; padding:10px;"></div>
 </div>
 
 <div id="p-chat" class="page active">
@@ -204,10 +140,8 @@
         <div class="input-row">
             <input type="file" id="file-input" accept=".pdf,.docx,.txt,.md" style="display:none" onchange="core.handleFile(this)">
             <button class="icon-btn" onclick="document.getElementById('file-input').click()">📄</button>
-            
             <input type="file" id="img-input" accept="image/*" style="display:none" onchange="core.handleImg(this)">
             <button class="icon-btn" onclick="document.getElementById('img-input').click()">📎</button>
-            
             <textarea id="u-in" placeholder="Message..."></textarea>
             <button class="btn" onclick="core.send()" style="background:var(--accent);border:none;color:white;width:40px;height:40px;padding:0;display:flex;align-items:center;justify-content:center;border-radius:20px;">↑</button>
         </div>
@@ -217,11 +151,11 @@
 <div id="p-cal" class="page">
     <header><h1>Schedule</h1></header>
     <div class="clock-row">
-        <div class="clock"><div id="t-cn" class="clock-t">--:--</div><div class="clock-l">Beijing</div></div>
-        <div class="clock"><div id="t-ny" class="clock-t">--:--</div><div class="clock-l">New York</div></div>
+        <div class="clock"><div id="t-cn" class="clock-t" style="font-size:1.4rem;font-weight:bold;color:var(--accent);font-family:monospace">--:--</div><div class="clock-l">Beijing</div></div>
+        <div class="clock"><div id="t-ny" class="clock-t" style="font-size:1.4rem;font-weight:bold;color:var(--accent);font-family:monospace">--:--</div><div class="clock-l">New York</div></div>
     </div>
-    <div id="evt-list"></div>
-    <div id="add-box">
+    <div id="evt-list" style="flex:1;overflow-y:auto;padding:15px;"></div>
+    <div id="add-box" style="padding:10px;background:var(--card);border-top:1px solid var(--border);display:flex;gap:8px;">
         <input type="time" id="ev-t" value="09:00" class="inp" style="width:auto;margin:0;">
         <input type="text" id="ev-txt" placeholder="Add event..." class="inp" style="margin:0;flex:1;">
         <button class="btn" onclick="core.addEv()" style="background:var(--accent);border:none;color:white;width:40px;">+</button>
@@ -243,7 +177,7 @@
         </div>
 
         <div id="tab-conn" class="tab-content active">
-            <div class="row">
+            <div class="row" style="display:flex;gap:10px;">
                 <button class="btn" style="flex:1" onclick="core.preset('ds')">DeepSeek</button>
                 <button class="btn" style="flex:1" onclick="core.preset('oa')">GPT-4o</button>
             </div>
@@ -256,7 +190,7 @@
         
         <div id="tab-voice" class="tab-content">
              <label>Voice Engine</label>
-            <div class="row">
+            <div class="row" style="display:flex;gap:10px;">
                 <button class="btn" style="flex:1" onclick="core.setVoiceMode('native')">Native (Free)</button>
                 <button class="btn" style="flex:1" onclick="core.setVoiceMode('openai')">OpenAI (Pro)</button>
             </div>
@@ -291,7 +225,6 @@
 </div>
 
 <script>
-// Logic remains same, only style updated in HTML structure
 const ui = {
     nav: (p) => {
         document.querySelectorAll('.page').forEach(e=>e.classList.remove('active'));
@@ -319,14 +252,36 @@ const ui = {
         if(file) content += `<div class="file-tag">📄 ${file}</div>`;
         content += role==='user' ? txt : marked.parse(txt);
         
+        // --- 修复：添加时间戳 ---
+        const now = new Date();
+        const tStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+        content += `<div class="time">${tStr}</div>`;
+        
         if(role !== 'user') {
              const rawTxt = txt.replace(/"/g, '&quot;');
              content += `<div class="replay-btn" onclick="core.speak('${rawTxt}', true)">🔈 Replay</div>`;
+             
+             // --- 修复：添加长按/右键事件监听 ---
+             d.oncontextmenu = (e) => { e.preventDefault(); ui.showCtx(e.pageX, e.pageY); };
+             let timer;
+             d.ontouchstart = (e) => { timer = setTimeout(() => ui.showCtx(e.touches[0].pageX, e.touches[0].pageY), 600); };
+             d.ontouchend = () => clearTimeout(timer);
+             d.ontouchmove = () => clearTimeout(timer); // 滑动取消长按
         }
         d.innerHTML = content;
         const box = document.getElementById('chat-box'); box.appendChild(d); box.scrollTop=box.scrollHeight;
         return d;
     },
+    // --- 修复：菜单显示逻辑 ---
+    showCtx: (x, y) => {
+        const m = document.getElementById('ctx-menu');
+        m.style.display = 'block';
+        // 防止菜单溢出屏幕右侧
+        m.style.left = Math.min(x, window.innerWidth - 150) + 'px';
+        m.style.top = y + 'px';
+    },
+    hideCtx: () => document.getElementById('ctx-menu').style.display = 'none',
+    
     addPreview: (type, src, name) => {
         const p = document.getElementById('preview-area');
         p.style.display = 'flex';
@@ -376,7 +331,6 @@ const core = {
         document.getElementById('t-ny').innerText = `${String(ny.getHours()).padStart(2,'0')}:${String(ny.getMinutes()).padStart(2,'0')}`;
     },
 
-    // --- CONFIG & DATA ---
     preset: (t) => {
         const d = t==='ds' ? ['https://api.deepseek.com/chat/completions','deepseek-chat'] : ['https://api.openai.com/v1/chat/completions','gpt-4o'];
         document.getElementById('c-url').value = d[0]; document.getElementById('c-mod').value = d[1];
@@ -404,7 +358,6 @@ const core = {
     },
     toggleAutoTTS: () => { core.autoTTS = !core.autoTTS; document.getElementById('tts-indicator').classList.toggle('active', core.autoTTS); if(core.autoTTS) core.speak("Audio On", true); },
 
-    // --- FILES & IMAGES ---
     handleImg: (input) => {
         if (input.files && input.files[0]) {
             const reader = new FileReader();
@@ -429,7 +382,6 @@ const core = {
             const name = f.name;
             let text = "";
             ui.addPreview('file', null, "Parsing " + name + "...");
-            
             try {
                 if(name.endsWith('.pdf')) {
                     const arrayBuffer = await f.arrayBuffer();
@@ -446,15 +398,10 @@ const core = {
                 } else {
                     text = await f.text(); // txt, md
                 }
-                
-                core.currUpload.fileText = text;
-                core.currUpload.fileName = name;
-                ui.clearPreviews(); 
-                ui.addPreview('file', null, name);
-                
+                core.currUpload.fileText = text; core.currUpload.fileName = name;
+                ui.clearPreviews(); ui.addPreview('file', null, name);
             } catch(e) {
-                alert("Parse Error: " + e.message);
-                ui.clearPreviews();
+                alert("Parse Error: " + e.message); ui.clearPreviews();
             }
         }
     },
@@ -465,7 +412,29 @@ const core = {
         document.getElementById('img-input').value=''; document.getElementById('file-input').value='';
     },
 
-    // --- CHAT LOGIC ---
+    // --- 修复：重新生成逻辑 ---
+    regenerate: () => {
+        const sess = core.sessions[core.currSessId];
+        if(!sess || sess.msgs.length === 0) return;
+        // 移除最后一条 AI 消息
+        if(sess.msgs[sess.msgs.length-1].role === 'assistant') {
+            sess.msgs.pop();
+            // 获取并移除最后一条用户消息，重新填入输入框
+            const lastUserMsg = sess.msgs.pop();
+            core.saveSessions();
+            core.loadSession(core.currSessId); // 刷新界面
+            
+            if(lastUserMsg) {
+                document.getElementById('u-in').value = lastUserMsg.content;
+                // 如果有图片或文件，这里简化处理暂不自动恢复，仅恢复文本
+                if(lastUserMsg.img) core.currUpload.img = lastUserMsg.img; 
+                if(lastUserMsg.file) { core.currUpload.fileName = lastUserMsg.file; /* 内容丢失无法恢复，仅恢复文件名显示 */ }
+                
+                core.send(); // 自动重新发送
+            }
+        }
+    },
+
     send: async () => {
         const el = document.getElementById('u-in'); const txt = el.value.trim();
         if((!txt && !core.currUpload.img && !core.currUpload.fileText) || !core.conf.key) return;
@@ -492,7 +461,6 @@ const core = {
         
         const aiDiv = ui.bubble('ai', 'Thinking...');
 
-        // RAG
         let sys = core.conf.persona + `\n[Time:${new Date().toLocaleString()}]`;
         if(core.evts.length) sys += `\n[Schedule]:\n${core.evts.map(e=>`- ${e.t} ${e.d} (${e.n})`).join('\n')}`;
         const hits = core.mems.filter(m => m.keys.some(k => txt.includes(k)));
@@ -527,14 +495,25 @@ const core = {
                 });
                 document.getElementById('chat-box').scrollTop = 99999;
             }
+            // 补全时间戳
+            const now = new Date();
+            aiDiv.innerHTML += `<div class="time">${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}</div>`;
+            
+            // 重新绑定事件给新生成的泡泡
+            aiDiv.oncontextmenu = (e) => { e.preventDefault(); ui.showCtx(e.pageX, e.pageY); };
+            let timer;
+            aiDiv.ontouchstart = (e) => { timer = setTimeout(() => ui.showCtx(e.touches[0].pageX, e.touches[0].pageY), 600); };
+            aiDiv.ontouchend = () => clearTimeout(timer);
+            aiDiv.ontouchmove = () => clearTimeout(timer);
+
+            aiDiv.innerHTML += `<div class="replay-btn" onclick="core.speak('${final.replace(/'/g, "\\'").replace(/\n/g, ' ')}', true)">🔈 Replay</div>`;
+
             sess.msgs.push({role:'assistant', content:final});
             core.saveSessions();
-            aiDiv.innerHTML += `<div class="replay-btn" onclick="core.speak('${final.replace(/'/g, "\\'").replace(/\n/g, ' ')}', true)">🔈 Replay</div>`;
             if(core.autoTTS) core.speak(final);
         } catch(e) { aiDiv.innerHTML = 'Error: '+e.message; }
     },
 
-    // --- AUDIO & SESSIONS & MEMORY & BACKUP ---
     speak: async (text, force=false) => {
         if(!core.autoTTS && !force) return;
         const plain = text.replace(/[*#`]/g, '');
