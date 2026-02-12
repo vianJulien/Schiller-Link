@@ -43,7 +43,7 @@ const ui = {
         if(open) { sb.classList.add('open'); ov.style.display='block'; core.renderSessionList(); }
         else { sb.classList.remove('open'); ov.style.display='none'; }
     },
-    bubble: (role, txt, img=null, file=null) => {
+    bubble: (role, txt, img=null, file=null, msgIndex=null) => {
         const d = document.createElement('div'); d.className = `bubble ${role==='user'?'u-msg':'a-msg'}`;
         let content = "";
         if(img) content += `<img src="${img}">`;
@@ -57,18 +57,27 @@ const ui = {
         if(role !== 'user') {
              const rawTxt = txt.replace(/"/g, '&quot;');
              content += `<div class="replay-btn" onclick="core.speak('${rawTxt}', true)">🔈 Replay</div>`;
-             d.oncontextmenu = (e) => { e.preventDefault(); ui.showCtx(e.pageX, e.pageY); };
-             let timer;
-             d.ontouchstart = (e) => { timer = setTimeout(() => ui.showCtx(e.touches[0].pageX, e.touches[0].pageY), 600); };
-             d.ontouchend = () => clearTimeout(timer);
-             d.ontouchmove = () => clearTimeout(timer);
         }
         d.innerHTML = content;
+
+        // 统一绑定长按和右键菜单，时长上调至 1000ms
+        d.oncontextmenu = (e) => { e.preventDefault(); ui.showCtx(e.pageX, e.pageY, role, msgIndex); };
+        let timer;
+        d.ontouchstart = (e) => { timer = setTimeout(() => ui.showCtx(e.touches[0].pageX, e.touches[0].pageY, role, msgIndex), 1000); };
+        d.ontouchend = () => clearTimeout(timer);
+        d.ontouchmove = () => clearTimeout(timer);
+
         const box = document.getElementById('chat-box'); box.appendChild(d); box.scrollTop=box.scrollHeight;
         return d;
     },
-    showCtx: (x, y) => {
+    // 动态生成菜单项
+    showCtx: (x, y, role, msgIndex) => {
         const m = document.getElementById('ctx-menu');
+        if (role === 'user') {
+            m.innerHTML = `<div class="ctx-item" onclick="core.editMsg(${msgIndex})">✏️ 编辑并重发</div>`;
+        } else {
+            m.innerHTML = `<div class="ctx-item" onclick="core.regenerate(${msgIndex})">🔄 重新生成回答</div>`;
+        }
         m.style.display = 'block';
         m.style.left = Math.min(x, window.innerWidth - 150) + 'px';
         m.style.top = y + 'px';
@@ -190,7 +199,7 @@ const core = {
                     const result = await mammoth.extractRawText({arrayBuffer: arrayBuffer});
                     text = result.value;
                 } else {
-                    text = await f.text(); // txt, md
+                    text = await f.text();
                 }
                 core.currUpload.fileText = text; core.currUpload.fileName = name;
                 ui.clearPreviews(); ui.addPreview('file', null, name);
@@ -206,20 +215,51 @@ const core = {
         document.getElementById('img-input').value=''; document.getElementById('file-input').value='';
     },
 
-    regenerate: () => {
+    // 编辑用户自己的历史消息
+    editMsg: (idx) => {
+        ui.hideCtx();
+        if (idx == null) return;
+        const sess = core.sessions[core.currSessId];
+        const msg = sess.msgs[idx];
+        if (!msg) return;
+
+        // 文本回填到输入框
+        document.getElementById('u-in').value = msg.content;
+        
+        // 如果有附件，也恢复预览
+        if (msg.img) { core.currUpload.img = msg.img; ui.addPreview('img', msg.img, ''); }
+        if (msg.file) { core.currUpload.fileName = msg.file; ui.addPreview('file', null, msg.file); }
+
+        // 截断该消息及其之后的时间线
+        sess.msgs = sess.msgs.slice(0, idx);
+        core.saveSessions();
+        core.loadSession(core.currSessId);
+    },
+
+    // 重新生成 AI 的回复
+    regenerate: (idx) => {
+        ui.hideCtx();
         const sess = core.sessions[core.currSessId];
         if(!sess || sess.msgs.length === 0) return;
-        if(sess.msgs[sess.msgs.length-1].role === 'assistant') {
-            sess.msgs.pop();
-            const lastUserMsg = sess.msgs.pop();
-            core.saveSessions();
-            core.loadSession(core.currSessId);
-            if(lastUserMsg) {
-                document.getElementById('u-in').value = lastUserMsg.content;
-                if(lastUserMsg.img) core.currUpload.img = lastUserMsg.img; 
-                if(lastUserMsg.file) { core.currUpload.fileName = lastUserMsg.file; }
-                core.send();
-            }
+        
+        if (idx == null) idx = sess.msgs.length - 1;
+        
+        // 寻找触发这条 AI 回复的用户消息的索引
+        let userIdx = idx - 1;
+        if (userIdx < 0) return; 
+        
+        const lastUserMsg = sess.msgs[userIdx];
+        
+        // 截断时间线到上一条用户消息
+        sess.msgs = sess.msgs.slice(0, userIdx);
+        core.saveSessions();
+        core.loadSession(core.currSessId);
+        
+        if(lastUserMsg) {
+            document.getElementById('u-in').value = lastUserMsg.content;
+            if(lastUserMsg.img) { core.currUpload.img = lastUserMsg.img; ui.addPreview('img', lastUserMsg.img, ''); }
+            if(lastUserMsg.file) { core.currUpload.fileName = lastUserMsg.file; ui.addPreview('file', null, lastUserMsg.file); }
+            core.send();
         }
     },
 
@@ -230,7 +270,9 @@ const core = {
         const sess = core.sessions[core.currSessId];
         if(sess.msgs.length===0 && txt) { sess.title = txt.substring(0,12)+'...'; document.getElementById('header-title').innerText = sess.title; }
 
-        ui.bubble('user', txt, core.currUpload.img, core.currUpload.fileName);
+        sess.msgs.push({role:'user', content:txt, img:core.currUpload.img, file:core.currUpload.fileName});
+        const userIdx = sess.msgs.length - 1;
+        ui.bubble('user', txt, core.currUpload.img, core.currUpload.fileName, userIdx);
         
         let finalText = txt;
         if(core.currUpload.fileText) finalText += `\n\n[FILE CONTENT: ${core.currUpload.fileName}]\n${core.currUpload.fileText}\n[END FILE]`;
@@ -240,14 +282,14 @@ const core = {
             apiContent = [ { type: "text", text: finalText || "Image." }, { type: "image_url", image_url: { url: core.currUpload.img } } ];
         } else { apiContent = finalText; }
 
-        sess.msgs.push({role:'user', content:txt, img:core.currUpload.img, file:core.currUpload.fileName});
         core.saveSessions();
 
         const wasImg = core.currUpload.img;
         core.currUpload = { img:null, fileText:null, fileName:null };
         el.value=''; ui.clearPreviews();
         
-        const aiDiv = ui.bubble('ai', 'Thinking...');
+        const aiIdx = sess.msgs.length;
+        const aiDiv = ui.bubble('ai', 'Thinking...', null, null, aiIdx);
 
         let sys = core.conf.persona + `\n[Time:${new Date().toLocaleString()}]`;
         if(core.evts.length) sys += `\n[Schedule]:\n${core.evts.map(e=>`- ${e.t} ${e.d} (${e.n})`).join('\n')}`;
@@ -285,9 +327,9 @@ const core = {
             }
             const now = new Date();
             aiDiv.innerHTML += `<div class="time">${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}</div>`;
-            aiDiv.oncontextmenu = (e) => { e.preventDefault(); ui.showCtx(e.pageX, e.pageY); };
+            aiDiv.oncontextmenu = (e) => { e.preventDefault(); ui.showCtx(e.pageX, e.pageY, 'ai', aiIdx); };
             let timer;
-            aiDiv.ontouchstart = (e) => { timer = setTimeout(() => ui.showCtx(e.touches[0].pageX, e.touches[0].pageY), 600); };
+            aiDiv.ontouchstart = (e) => { timer = setTimeout(() => ui.showCtx(e.touches[0].pageX, e.touches[0].pageY, 'ai', aiIdx), 1000); };
             aiDiv.ontouchend = () => clearTimeout(timer);
             aiDiv.ontouchmove = () => clearTimeout(timer);
             aiDiv.innerHTML += `<div class="replay-btn" onclick="core.speak('${final.replace(/'/g, "\\'").replace(/\n/g, ' ')}', true)">🔈 Replay</div>`;
@@ -320,7 +362,7 @@ const core = {
         }
     },
     newSession: () => { const id = Date.now().toString(); core.sessions[id] = {id, title:'New Chat', msgs:[]}; core.currSessId=id; core.saveSessions(); core.loadSession(id); ui.toggleSidebar(false); },
-    loadSession: (id) => { if(!core.sessions[id]) return; core.currSessId=id; localStorage.setItem('v11_curr_id', id); document.getElementById('header-title').innerText=core.sessions[id].title; const box=document.getElementById('chat-box'); box.innerHTML=''; core.sessions[id].msgs.forEach(m=>ui.bubble(m.role==='assistant'?'ai':'user', m.content, m.img, m.file)); },
+    loadSession: (id) => { if(!core.sessions[id]) return; core.currSessId=id; localStorage.setItem('v11_curr_id', id); document.getElementById('header-title').innerText=core.sessions[id].title; const box=document.getElementById('chat-box'); box.innerHTML=''; core.sessions[id].msgs.forEach((m, i)=>ui.bubble(m.role==='assistant'?'ai':'user', m.content, m.img, m.file, i)); },
     saveSessions: () => localStorage.setItem('v11_sessions', JSON.stringify(core.sessions)),
     renderSessionList: () => { const list=document.getElementById('session-list'); list.innerHTML=''; Object.keys(core.sessions).sort().reverse().forEach(id=>{ const s=core.sessions[id]; const div=document.createElement('div'); div.className=`sb-item ${id===core.currSessId?'active':''}`; div.innerHTML=`${s.title}<button class="sb-del" onclick="core.delSess('${id}', event)">×</button>`; div.onclick=()=>{core.loadSession(id);ui.toggleSidebar(false);}; list.appendChild(div); }); },
     delSess: (id, e) => { e.stopPropagation(); if(!confirm('Delete?')) return; delete core.sessions[id]; core.saveSessions(); if(core.currSessId===id) core.newSession(); else core.renderSessionList(); },
