@@ -91,3 +91,79 @@ h1 { margin:0; font-size:1.1rem; font-weight:600; letter-spacing:0.5px; }
 
 label { display: block; margin-bottom: 5px; font-size: 0.85rem; color: var(--text-sub); font-weight: 500; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ====================
+   Calendar Styles (v1.1 Fixed)
+   ==================== */
+
+/* 1. 日历网格容器 (关键：让格子排成7列) */
+.cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+    padding: 0 10px;
+    margin-bottom: 15px;
+}
+
+/* 2. 星期头 (S M T W...) - 对应 JS: class="cal-wk" */
+.cal-wk {
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--text-sub);
+    padding: 5px 0;
+    font-weight: 600;
+}
+
+/* 3. 日期格子基础样式 */
+.cal-day {
+    aspect-ratio: 1; /* 保持正方形 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    background: var(--bg);
+    border: 1px solid transparent;
+    position: relative; /* 为了定位小红点 */
+    transition: all 0.2s;
+}
+
+/* 鼠标悬停 */
+.cal-day:hover:not(.empty) { 
+    background: var(--card); 
+    border-color: var(--border); 
+}
+
+/* 空白格子 */
+.cal-day.empty { 
+    background: transparent; 
+    cursor: default; 
+}
+
+/* 4. 选中状态 - 对应 JS: class="selected" */
+.cal-day.selected {
+    background: var(--accent);
+    color: white;
+    font-weight: bold;
+    border-color: var(--accent);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+/* 5. 有事件的小红点 - 对应 JS: class="has-evt" */
+.cal-day.has-evt::after {
+    content: '';
+    position: absolute;
+    bottom: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px;
+    height: 4px;
+    background: #f85149;
+    border-radius: 50%;
+}
+
+/* 选中状态下，小红点变白以便看清 */
+.cal-day.selected.has-evt::after { 
+    background: white; 
+}
