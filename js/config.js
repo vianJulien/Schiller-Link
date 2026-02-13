@@ -10,9 +10,16 @@ const core = {
     conf: { 
         url: '', key: '', model: '', persona: '', temp: '1.0', maxTokens: '0', 
         freq: '0', pres: '0', minOutput: '0',
+        apiFormat: 'openai', // <--- [看这里，它成了 conf 里的新成员]
         p_warm: 50, p_direct: 50, p_intel: 50, p_empathy: 50, p_obed: 50 
     },
     voiceConf: { mode: 'native', key: '', voice: 'onyx' },
+    mems: [], evts: [], sessions: {}, currSessId: null,
+    autoTTS: false,
+    currUpload: { img: null, fileText: null, fileName: null },
+    calDate: new Date(),
+    selectedDateStr: ''
+};    voiceConf: { mode: 'native', key: '', voice: 'onyx' },
     
     // 数据存储
     mems: [], 
@@ -50,13 +57,13 @@ const changelogData = [
             "✨ [新增] 全新 Plan 页面与可视化日历网格",
             "✨ [新增] AI 每日首次访问主动问候功能",
             "✨ [新增] 支持添加带有具体时间的日程安排",
-            "🧠 [强化] AI 现在能感知当前时间与未来的用户计划"
+            "🧠 [强化] AI 现在能感知当前日期与未来的用户计划"
         ]
     },
     {
         version: "v1.0",
         date: "2026-02-10",
-        title: "ChatVie 破壳而出",
+        title: "TALK 破壳而出",
         changes: [
             "✨ [核心] 支持对接多种大语言模型 API",
             "✨ [核心] 建立 Personality Engine 动态性格调校系统",
