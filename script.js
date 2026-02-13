@@ -52,7 +52,6 @@ const ui = {
         else { sb.classList.remove('open'); ov.style.display = 'none'; }
     },
     
-    // [UI] 气泡渲染 (支持传入固定时间)
     bubble: (role, txt, img = null, file = null, msgIndex = null, timeStr = null) => {
         const d = document.createElement('div'); d.className = `bubble ${role === 'user' ? 'u-msg' : 'a-msg'}`;
         let content = "";
@@ -117,9 +116,9 @@ const core = {
     autoTTS: false,
     currUpload: { img: null, fileText: null, fileName: null },
     
-    // [Calendar] 日历状态
+    // Calendar vars
     calDate: new Date(),
-    selectedDateStr: new Date().toISOString().split('T')[0],
+    selectedDateStr: '', // 会在 init 里初始化为本地时间
 
     init: () => {
         ui.initTheme();
@@ -162,10 +161,13 @@ const core = {
         if (!core.currSessId || !core.sessions[core.currSessId]) core.newSession();
         else core.loadSession(core.currSessId);
 
-        // [Init] 初始化日历和检查问候
+        // 初始化当前日期为本地时间
+        const now = new Date();
+        core.selectedDateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+
         core.renderCalendar();
-        core.renderEvt(); // 初始渲染当日事件
-        setTimeout(core.checkDailyGreeting, 2000); // 延迟2秒触发问候
+        core.renderEvt(); 
+        setTimeout(core.checkDailyGreeting, 2000); 
         setInterval(core.clockTick, 1000);
     },
 
@@ -237,21 +239,19 @@ const core = {
     },
     toggleAutoTTS: () => { core.autoTTS = !core.autoTTS; document.getElementById('tts-indicator').classList.toggle('active', core.autoTTS); if (core.autoTTS) core.speak("Audio On", true); },
 
-    // --- Calendar & Event Logic (New) ---
+    // --- Calendar & Event Logic ---
     changeMonth: (delta) => {
         core.calDate.setMonth(core.calDate.getMonth() + delta);
         core.renderCalendar();
     },
     selectDate: (dateStr) => {
         core.selectedDateStr = dateStr;
-        const label = document.getElementById('selected-date-label');
-        if(label) label.innerText = dateStr;
         core.renderCalendar(); 
         core.renderEvt(); 
     },
     renderCalendar: () => {
         const grid = document.getElementById('cal-grid');
-        if (!grid) return; // 防止页面还没改HTML报错
+        if (!grid) return; 
         
         const y = core.calDate.getFullYear();
         const m = core.calDate.getMonth();
@@ -260,6 +260,10 @@ const core = {
         
         const title = document.getElementById('cal-title');
         if (title) title.innerText = `${y} / ${String(m+1).padStart(2,'0')}`;
+        
+        // 确保下方的日期文字跟着更新
+        const label = document.getElementById('selected-date-label');
+        if (label) label.innerText = core.selectedDateStr;
         
         grid.innerHTML = '';
         ['S','M','T','W','T','F','S'].forEach(d => grid.innerHTML += `<div class="cal-wk">${d}</div>`);
@@ -276,10 +280,12 @@ const core = {
         }
     },
 
-    // [New] 主动问候逻辑
+    // 每日主动问候
     checkDailyGreeting: () => {
-        const today = new Date().toISOString().split('T')[0];
+        const now = new Date();
+        const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
         const lastGreet = localStorage.getItem('v11_last_greet');
+        
         if (lastGreet !== today && core.conf.key) {
             console.log("Triggering Daily Greeting...");
             const todayEvts = core.evts.filter(e => e.date === today);
@@ -315,7 +321,6 @@ const core = {
         } catch (e) { aiDiv.innerHTML = "Greeting Error: " + e.message; }
     },
 
-    // --- Event Logic (Updated for Date) ---
     addEv: async () => {
         const t = document.getElementById('ev-t').value;
         const txt = document.getElementById('ev-txt').value.trim();
@@ -329,7 +334,6 @@ const core = {
             core.renderEvt();
             document.getElementById('ev-txt').value = '';
             
-            // AI 简短评价 (可选)
             if (core.conf.key) { 
                 try { 
                     const res = await fetch(core.conf.url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${core.conf.key}` }, body: JSON.stringify({ model: core.conf.model, messages: [{ role: 'system', content: core.conf.persona }, { role: 'user', content: `User added plan on ${date} at ${t}: "${txt}". Comment briefly (Chinese, <20 chars):` }], stream: false }) }); 
@@ -493,10 +497,8 @@ const core = {
         let sys = core.conf.persona + `\n[Current Date: ${timeString}]\n`;
         sys += core.generatePersonalityPrompt();
 
-        // [Updated] Schedule prompt logic (携带日期)
         if (core.evts.length) {
-            // 只携带今天及未来的计划，节省 token
-            const todayStr = now.toISOString().split('T')[0];
+            const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
             const futureEvts = core.evts.filter(e => e.date >= todayStr);
             if(futureEvts.length > 0) {
                 sys += `\n[Upcoming Schedule]:\n${futureEvts.slice(0, 5).map(e => `- ${e.date} ${e.t} ${e.d} (${e.n})`).join('\n')}`;
