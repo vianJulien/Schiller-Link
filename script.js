@@ -106,9 +106,10 @@ const ui = {
 };
 
 const core = {
+    // [Updated] 增加了 minOutput 参数
     conf: { 
         url: '', key: '', model: '', persona: '', temp: '1.0', maxTokens: '0', 
-        freq: '0', pres: '0', 
+        freq: '0', pres: '0', minOutput: '0',
         p_warm: 50, p_direct: 50, p_intel: 50, p_empathy: 50, p_obed: 50 
     },
     voiceConf: { mode: 'native', key: '', voice: 'onyx' },
@@ -118,7 +119,7 @@ const core = {
     
     // Calendar vars
     calDate: new Date(),
-    selectedDateStr: '', // 会在 init 里初始化为本地时间
+    selectedDateStr: '',
 
     init: () => {
         ui.initTheme();
@@ -144,6 +145,10 @@ const core = {
         setTxt('val-freq', core.conf.freq);
         setVal('c-pres', core.conf.pres);
         setTxt('val-pres', core.conf.pres);
+        
+        // [Updated] 初始化 minOutput 滑块
+        setVal('c-min', core.conf.minOutput);
+        setTxt('val-min', core.conf.minOutput);
 
         ['warm', 'direct', 'intel', 'empathy', 'obed'].forEach(k => {
             const val = core.conf['p_' + k];
@@ -161,7 +166,6 @@ const core = {
         if (!core.currSessId || !core.sessions[core.currSessId]) core.newSession();
         else core.loadSession(core.currSessId);
 
-        // 初始化当前日期为本地时间
         const now = new Date();
         core.selectedDateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
 
@@ -194,6 +198,9 @@ const core = {
         core.conf.maxTokens = document.getElementById('c-max').value;
         const elFreq = document.getElementById('c-freq'); if(elFreq) core.conf.freq = elFreq.value;
         const elPres = document.getElementById('c-pres'); if(elPres) core.conf.pres = elPres.value;
+        
+        // [Updated] 保存 minOutput
+        const elMin = document.getElementById('c-min'); if(elMin) core.conf.minOutput = elMin.value;
 
         Object.keys(core.conf).forEach(k => {
             if (!k.startsWith('p_')) localStorage.setItem('v11_' + k, core.conf[k]);
@@ -261,7 +268,6 @@ const core = {
         const title = document.getElementById('cal-title');
         if (title) title.innerText = `${y} / ${String(m+1).padStart(2,'0')}`;
         
-        // 确保下方的日期文字跟着更新
         const label = document.getElementById('selected-date-label');
         if (label) label.innerText = core.selectedDateStr;
         
@@ -280,7 +286,6 @@ const core = {
         }
     },
 
-    // 每日主动问候
     checkDailyGreeting: () => {
         const now = new Date();
         const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
@@ -496,6 +501,12 @@ const core = {
 
         let sys = core.conf.persona + `\n[Current Date: ${timeString}]\n`;
         sys += core.generatePersonalityPrompt();
+        
+        // [Updated] 加入最低输出限制的指令
+        const minVal = parseInt(core.conf.minOutput);
+        if (!isNaN(minVal) && minVal > 0) {
+            sys += `\n[CRITICAL FORMATTING RULE]: Your response MUST contain at least ${minVal} characters. Expand your reasoning, provide detailed examples, and elaborate thoroughly to meet this strict length requirement. DO NOT give short answers.\n`;
+        }
 
         if (core.evts.length) {
             const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;

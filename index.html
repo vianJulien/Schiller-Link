@@ -184,6 +184,8 @@
 
         <label style="margin-top:10px">Max Tokens (0=Default)</label>
         <input type="number" id="c-max" class="inp" value="0" style="margin-bottom:0;">
+        <label style="margin-top:15px">Min Output (强制长回复): <span id="val-min" style="color:var(--accent)">0</span> 字</label>
+        <input type="range" id="c-min" class="slider" min="0" max="2000" step="100" value="0" oninput="document.getElementById('val-min').innerText=this.value">
     </div>
 
     <button class="btn primary" onclick="core.saveConn()">Save Config</button>
