@@ -2,32 +2,22 @@
 // 1. SYSTEM CONFIGURATION & STATE
 // ==========================================
 
-// PDF.js Worker 路径 (用于解析 PDF)
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-// 核心状态与配置对象
 const core = {
     conf: { 
         url: '', key: '', model: '', persona: '', temp: '1.0', maxTokens: '0', 
         freq: '0', pres: '0', minOutput: '0',
-        apiFormat: 'openai', // <--- [看这里，它成了 conf 里的新成员]
+        apiFormat: 'openai', // 确保插座在这里
         p_warm: 50, p_direct: 50, p_intel: 50, p_empathy: 50, p_obed: 50 
     },
     voiceConf: { mode: 'native', key: '', voice: 'onyx' },
-    mems: [], evts: [], sessions: {}, currSessId: null,
-    autoTTS: false,
-    currUpload: { img: null, fileText: null, fileName: null },
-    calDate: new Date(),
-    selectedDateStr: ''
-};    voiceConf: { mode: 'native', key: '', voice: 'onyx' },
     
-    // 数据存储
     mems: [], 
     evts: [], 
     sessions: {}, 
     currSessId: null,
     
-    // 运行状态
     autoTTS: false,
     currUpload: { img: null, fileText: null, fileName: null },
     calDate: new Date(),
@@ -41,10 +31,10 @@ const changelogData = [
     {
         version: "v1.2",
         date: "2026-02-13",
-        title: "系统架构大重构 & 精度提升",
+        title: "系统架构大重构 & 多模型支持准备",
         changes: [
             "✨ [新增] 开发者专属 Update Log 页面",
-            "✨ [新增] 精确的『最低回复字数』控制功能",
+            "✨ [新增] 准备接入 Google Gemini 原生底层协议",
             "🛠️ [优化] 彻底重构底层代码，拆分为模块化架构",
             "🐛 [修复] 修正了日历组件跨月份选中的潜在时区问题"
         ]
@@ -57,7 +47,7 @@ const changelogData = [
             "✨ [新增] 全新 Plan 页面与可视化日历网格",
             "✨ [新增] AI 每日首次访问主动问候功能",
             "✨ [新增] 支持添加带有具体时间的日程安排",
-            "🧠 [强化] AI 现在能感知当前日期与未来的用户计划"
+            "🧠 [强化] AI 现在能感知当前时间与未来的用户计划"
         ]
     },
     {
