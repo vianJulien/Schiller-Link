@@ -23,7 +23,6 @@ const ui = {
         document.getElementById('meta-theme').setAttribute('content', isDark ? '#0d1117' : '#ffffff');
     },
     
-    // 滑动条实时更新显示数值
     updateTune: (key, val) => {
         const el = document.getElementById('val-' + key);
         if (el) el.innerText = val;
@@ -32,7 +31,6 @@ const ui = {
     nav: (p) => {
         document.querySelectorAll('.page').forEach(e => e.classList.remove('active'));
         document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active'));
-        // 兼容 tune 页面
         if (p === 'tune') {
             document.getElementById('p-tune').classList.add('active');
         } else {
@@ -54,7 +52,7 @@ const ui = {
         else { sb.classList.remove('open'); ov.style.display = 'none'; }
     },
     
-    // [已修复] bubble 函数现在接受 timeStr 参数
+    // [UI] 气泡渲染 (支持传入固定时间)
     bubble: (role, txt, img = null, file = null, msgIndex = null, timeStr = null) => {
         const d = document.createElement('div'); d.className = `bubble ${role === 'user' ? 'u-msg' : 'a-msg'}`;
         let content = "";
@@ -62,7 +60,6 @@ const ui = {
         if (file) content += `<div class="file-tag">📄 ${file}</div>`;
         content += role === 'user' ? txt : marked.parse(txt);
 
-        // [核心修复] 如果传了固定时间就用固定的，否则生成新的
         let tDisplay = timeStr;
         if (!tDisplay) {
             const now = new Date();
@@ -110,20 +107,22 @@ const ui = {
 };
 
 const core = {
-    // [Updated] 加入 freq 和 pres 参数
     conf: { 
         url: '', key: '', model: '', persona: '', temp: '1.0', maxTokens: '0', 
-        freq: '0', pres: '0', // 新增
+        freq: '0', pres: '0', 
         p_warm: 50, p_direct: 50, p_intel: 50, p_empathy: 50, p_obed: 50 
     },
     voiceConf: { mode: 'native', key: '', voice: 'onyx' },
     mems: [], evts: [], sessions: {}, currSessId: null,
     autoTTS: false,
     currUpload: { img: null, fileText: null, fileName: null },
+    
+    // [Calendar] 日历状态
+    calDate: new Date(),
+    selectedDateStr: new Date().toISOString().split('T')[0],
 
     init: () => {
         ui.initTheme();
-        // 加载所有配置
         Object.keys(core.conf).forEach(k => {
             const val = localStorage.getItem('v11_' + k);
             if(val !== null) core.conf[k] = val;
@@ -132,7 +131,6 @@ const core = {
         if (!core.conf.url) core.preset('ds');
         if (!core.conf.persona) core.conf.persona = "你叫艾德里安·席勒，教授。";
 
-        // 初始化连接设置界面
         const setVal = (id, v) => { const el = document.getElementById(id); if(el) el.value = v; };
         const setTxt = (id, v) => { const el = document.getElementById(id); if(el) el.innerText = v; };
 
@@ -143,14 +141,11 @@ const core = {
         setVal('c-temp', core.conf.temp);
         setTxt('t-val', core.conf.temp);
         setVal('c-max', core.conf.maxTokens);
-
-        // [Updated] 初始化新增的惩罚参数界面
         setVal('c-freq', core.conf.freq);
         setTxt('val-freq', core.conf.freq);
         setVal('c-pres', core.conf.pres);
         setTxt('val-pres', core.conf.pres);
 
-        // 初始化性格滑块显示
         ['warm', 'direct', 'intel', 'empathy', 'obed'].forEach(k => {
             const val = core.conf['p_' + k];
             setVal('rng-' + k, val);
@@ -167,7 +162,10 @@ const core = {
         if (!core.currSessId || !core.sessions[core.currSessId]) core.newSession();
         else core.loadSession(core.currSessId);
 
-        core.renderEvt();
+        // [Init] 初始化日历和检查问候
+        core.renderCalendar();
+        core.renderEvt(); // 初始渲染当日事件
+        setTimeout(core.checkDailyGreeting, 2000); // 延迟2秒触发问候
         setInterval(core.clockTick, 1000);
     },
 
@@ -186,63 +184,41 @@ const core = {
     },
     
     saveConn: () => {
-        // [Updated] 获取所有参数，包括新增的 freq 和 pres
         core.conf.url = document.getElementById('c-url').value;
         core.conf.key = document.getElementById('c-key').value;
         core.conf.model = document.getElementById('c-mod').value;
         core.conf.persona = document.getElementById('c-per').value;
         core.conf.temp = document.getElementById('c-temp').value;
         core.conf.maxTokens = document.getElementById('c-max').value;
-        
-        // 获取新增参数
         const elFreq = document.getElementById('c-freq'); if(elFreq) core.conf.freq = elFreq.value;
         const elPres = document.getElementById('c-pres'); if(elPres) core.conf.pres = elPres.value;
 
-        // 仅保存连接设置，不覆盖性格参数 (性格参数由 testPersonality 保存)
         Object.keys(core.conf).forEach(k => {
             if (!k.startsWith('p_')) localStorage.setItem('v11_' + k, core.conf[k]);
         });
         alert('Saved.');
     },
 
-    // 专门用于保存性格参数并测试
     testPersonality: () => {
         ['warm', 'direct', 'intel', 'empathy', 'obed'].forEach(k => {
             const val = document.getElementById('rng-' + k).value;
             core.conf['p_' + k] = val;
             localStorage.setItem('v11_p_' + k, val);
         });
-
-        // 切换回聊天页面
         ui.nav('chat');
-
-        // 自动填入并发送测试语
         document.getElementById('u-in').value = "今晚我感到孤独";
         core.send();
     },
 
-    // 核心：生成性格提示词
     generatePersonalityPrompt: () => {
         const { p_warm, p_direct, p_intel, p_empathy, p_obed } = core.conf;
         const w = parseInt(p_warm), d = parseInt(p_direct), i = parseInt(p_intel), e = parseInt(p_empathy), o = parseInt(p_obed);
-
         let p = "\n[Personality Traits Adjustment]:\n";
-
-        if (w > 70) p += "- You are extremely warm, affectionate, and gentle.\n";
-        else if (w < 30) p += "- You are cold, distant, and aloof.\n";
-
-        if (d > 70) p += "- Be blunt, straightforward, and do not sugarcoat your words.\n";
-        else if (d < 30) p += "- Be polite, evasive, and indirect.\n";
-
-        if (i > 70) p += "- Use academic, profound, and sophisticated language.\n";
-        else if (i < 30) p += "- Use simple, casual, and layman language.\n";
-
-        if (e > 70) p += "- Show deep empathy and validate feelings constantly.\n";
-        else if (e < 30) p += "- Focus on logic and facts, disregard emotional appeals.\n";
-
-        if (o > 70) p += "- Be submissive, obedient, and agree with the user.\n";
-        else if (o < 30) p += "- Be stubborn, independent, and challenge the user's views.\n";
-
+        if (w > 70) p += "- You are extremely warm, affectionate, and gentle.\n"; else if (w < 30) p += "- You are cold, distant, and aloof.\n";
+        if (d > 70) p += "- Be blunt, straightforward.\n"; else if (d < 30) p += "- Be polite, evasive.\n";
+        if (i > 70) p += "- Use academic, profound language.\n"; else if (i < 30) p += "- Use simple, casual language.\n";
+        if (e > 70) p += "- Show deep empathy.\n"; else if (e < 30) p += "- Focus on logic and facts.\n";
+        if (o > 70) p += "- Be submissive and obedient.\n"; else if (o < 30) p += "- Be stubborn and independent.\n";
         return p;
     },
 
@@ -260,6 +236,141 @@ const core = {
         alert('Voice Saved.');
     },
     toggleAutoTTS: () => { core.autoTTS = !core.autoTTS; document.getElementById('tts-indicator').classList.toggle('active', core.autoTTS); if (core.autoTTS) core.speak("Audio On", true); },
+
+    // --- Calendar & Event Logic (New) ---
+    changeMonth: (delta) => {
+        core.calDate.setMonth(core.calDate.getMonth() + delta);
+        core.renderCalendar();
+    },
+    selectDate: (dateStr) => {
+        core.selectedDateStr = dateStr;
+        const label = document.getElementById('selected-date-label');
+        if(label) label.innerText = dateStr;
+        core.renderCalendar(); 
+        core.renderEvt(); 
+    },
+    renderCalendar: () => {
+        const grid = document.getElementById('cal-grid');
+        if (!grid) return; // 防止页面还没改HTML报错
+        
+        const y = core.calDate.getFullYear();
+        const m = core.calDate.getMonth();
+        const firstDay = new Date(y, m, 1).getDay();
+        const daysInMonth = new Date(y, m + 1, 0).getDate();
+        
+        const title = document.getElementById('cal-title');
+        if (title) title.innerText = `${y} / ${String(m+1).padStart(2,'0')}`;
+        
+        grid.innerHTML = '';
+        ['S','M','T','W','T','F','S'].forEach(d => grid.innerHTML += `<div class="cal-wk">${d}</div>`);
+        for(let i=0; i<firstDay; i++) grid.innerHTML += `<div class="cal-day empty"></div>`;
+
+        for(let d=1; d<=daysInMonth; d++) {
+            const dStr = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+            const div = document.createElement('div');
+            div.className = `cal-day ${dStr === core.selectedDateStr ? 'selected' : ''}`;
+            if (core.evts.some(e => e.date === dStr)) div.classList.add('has-evt');
+            div.innerText = d;
+            div.onclick = () => core.selectDate(dStr);
+            grid.appendChild(div);
+        }
+    },
+
+    // [New] 主动问候逻辑
+    checkDailyGreeting: () => {
+        const today = new Date().toISOString().split('T')[0];
+        const lastGreet = localStorage.getItem('v11_last_greet');
+        if (lastGreet !== today && core.conf.key) {
+            console.log("Triggering Daily Greeting...");
+            const todayEvts = core.evts.filter(e => e.date === today);
+            const planText = todayEvts.length > 0 
+                ? `用户今日计划: ${todayEvts.map(e => e.t + ' ' + e.d).join(', ')}`
+                : "用户今日暂无特定计划";
+            
+            const sysPrompt = `现在是 ${today}。这是用户今天第一次打开应用。请作为艾德里安·席勒(Adrian Schiller)教授，根据你的性格设定，主动向用户(Vian)发起早安/午安问候。简要提及日期，并针对"${planText}"发表一句评论或鼓励。不要等待用户输入。直接输出问候语。`;
+            
+            core.triggerGreeting(sysPrompt);
+            localStorage.setItem('v11_last_greet', today);
+        }
+    },
+    triggerGreeting: async (sysPrompt) => {
+        const sess = core.sessions[core.currSessId];
+        const aiIdx = sess.msgs.length; 
+        const aiDiv = ui.bubble('ai', 'Writing daily greeting...', null, null, aiIdx);
+        try {
+            const res = await fetch(core.conf.url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${core.conf.key}` },
+                body: JSON.stringify({ model: core.conf.model, messages: [{ role: 'system', content: sysPrompt }], stream: false })
+            });
+            const data = await res.json();
+            const reply = data.choices[0].message.content;
+            aiDiv.innerHTML = marked.parse(reply);
+            const now = new Date();
+            const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+            aiDiv.innerHTML += `<div class="time">${timeStr}</div>`;
+            sess.msgs.push({ role: 'assistant', content: reply, time: timeStr });
+            core.saveSessions();
+            if (core.autoTTS) core.speak(reply);
+        } catch (e) { aiDiv.innerHTML = "Greeting Error: " + e.message; }
+    },
+
+    // --- Event Logic (Updated for Date) ---
+    addEv: async () => {
+        const t = document.getElementById('ev-t').value;
+        const txt = document.getElementById('ev-txt').value.trim();
+        const date = core.selectedDateStr;
+        if (txt) {
+            const ev = { id: Date.now(), date, t, d: txt, n: 'Reviewing...' };
+            core.evts.push(ev);
+            core.evts.sort((a, b) => (a.date + a.t).localeCompare(b.date + b.t));
+            localStorage.setItem('v11_evts', JSON.stringify(core.evts));
+            core.renderCalendar(); 
+            core.renderEvt();
+            document.getElementById('ev-txt').value = '';
+            
+            // AI 简短评价 (可选)
+            if (core.conf.key) { 
+                try { 
+                    const res = await fetch(core.conf.url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${core.conf.key}` }, body: JSON.stringify({ model: core.conf.model, messages: [{ role: 'system', content: core.conf.persona }, { role: 'user', content: `User added plan on ${date} at ${t}: "${txt}". Comment briefly (Chinese, <20 chars):` }], stream: false }) }); 
+                    const j = await res.json(); 
+                    ev.n = j.choices[0].message.content; 
+                    localStorage.setItem('v11_evts', JSON.stringify(core.evts)); 
+                    core.renderEvt(); 
+                } catch (e) { } 
+            }
+        }
+    },
+    delEv: (id) => { core.evts = core.evts.filter(e => e.id !== id); localStorage.setItem('v11_evts', JSON.stringify(core.evts)); core.renderCalendar(); core.renderEvt(); },
+    renderEvt: () => { 
+        const b = document.getElementById('evt-list');
+        if (!b) return;
+        b.innerHTML = ''; 
+        const dailyEvts = core.evts.filter(e => e.date === core.selectedDateStr);
+        if (dailyEvts.length === 0) {
+            b.innerHTML = '<div style="text-align:center;color:var(--text-sub);margin-top:20px;font-size:0.9rem">No plans.</div>';
+            return;
+        }
+        dailyEvts.forEach(e => { b.innerHTML += `<div class="evt"><div style="display:flex;justify-content:space-between"><b>${e.d}</b><span style="color:var(--accent)">${e.t}</span></div><div class="evt-n">${e.n}</div><button class="del" onclick="core.delEv(${e.id})">×</button></div>`; }); 
+    },
+
+    exportData: () => { const d = { conf: core.conf, voice: core.voiceConf, mems: core.mems, evts: core.evts, sessions: core.sessions }; const b = new Blob([JSON.stringify(d, null, 2)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'schiller_v11.json'; a.click(); },
+    
+    importData: (i) => {
+        const r = new FileReader();
+        r.onload = (e) => {
+            try {
+                const d = JSON.parse(e.target.result);
+                if (d.conf) { Object.keys(d.conf).forEach(k => { localStorage.setItem('v11_' + k, d.conf[k]); }); }
+                if (d.voice) localStorage.setItem('v11_voice', JSON.stringify(d.voice));
+                if (d.mems) localStorage.setItem('v11_mems', JSON.stringify(d.mems));
+                if (d.evts) localStorage.setItem('v11_evts', JSON.stringify(d.evts));
+                if (d.sessions) localStorage.setItem('v11_sessions', JSON.stringify(d.sessions));
+                alert('Restored'); location.reload();
+            } catch (err) { alert('Error: ' + err.message); }
+        };
+        r.readAsText(i.files[0]);
+    },
 
     handleImg: (input) => {
         if (input.files && input.files[0]) {
@@ -344,8 +455,11 @@ const core = {
             if (core.currSessId === id) document.getElementById('header-title').innerText = s.title;
         }
     },
+    delSess: (id, e) => { e.stopPropagation(); if (!confirm('Delete?')) return; delete core.sessions[id]; core.saveSessions(); if (core.currSessId === id) core.newSession(); else core.renderSessionList(); },
+    addMem: () => { const k = document.getElementById('new-mem-keys').value.trim(); const i = document.getElementById('new-mem-info').value.trim(); if (k && i) { core.mems.push({ keys: k.split(/[,，\s]+/).filter(k => k), info: i }); localStorage.setItem('v11_mems', JSON.stringify(core.mems)); core.renderMemCards(); document.getElementById('new-mem-keys').value = ''; document.getElementById('new-mem-info').value = ''; } },
+    delMem: (i) => { core.mems.splice(i, 1); localStorage.setItem('v11_mems', JSON.stringify(core.mems)); core.renderMemCards(); },
+    renderMemCards: () => { const b = document.getElementById('mem-list-container'); b.innerHTML = ''; core.mems.forEach((m, i) => { b.innerHTML += `<div class="mem-card"><div class="mem-keys"># ${m.keys.join(', ')}</div><div class="mem-info">${m.info}</div><button class="mem-del" onclick="core.delMem(${i})">×</button></div>`; }); },
 
-    // [已修复] 发送逻辑：写入固定时间戳
     send: async () => {
         const el = document.getElementById('u-in'); const txt = el.value.trim();
         if ((!txt && !core.currUpload.img && !core.currUpload.fileText) || !core.conf.key) return;
@@ -353,14 +467,11 @@ const core = {
         const sess = core.sessions[core.currSessId];
         if (sess.msgs.length === 0 && txt) { sess.title = txt.substring(0, 12) + '...'; document.getElementById('header-title').innerText = sess.title; }
 
-        // [核心修复] 获取用户发送时间并固定
         const now = new Date();
         const userTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-        // 保存消息时带上 time 字段
         sess.msgs.push({ role: 'user', content: txt, img: core.currUpload.img, file: core.currUpload.fileName, time: userTime });
         const userIdx = sess.msgs.length - 1;
-        // 传给 ui.bubble
         ui.bubble('user', txt, core.currUpload.img, core.currUpload.fileName, userIdx, userTime);
 
         let finalText = txt;
@@ -382,7 +493,16 @@ const core = {
         let sys = core.conf.persona + `\n[Current Date: ${timeString}]\n`;
         sys += core.generatePersonalityPrompt();
 
-        if (core.evts.length) sys += `\n[Schedule]:\n${core.evts.map(e => `- ${e.t} ${e.d} (${e.n})`).join('\n')}`;
+        // [Updated] Schedule prompt logic (携带日期)
+        if (core.evts.length) {
+            // 只携带今天及未来的计划，节省 token
+            const todayStr = now.toISOString().split('T')[0];
+            const futureEvts = core.evts.filter(e => e.date >= todayStr);
+            if(futureEvts.length > 0) {
+                sys += `\n[Upcoming Schedule]:\n${futureEvts.slice(0, 5).map(e => `- ${e.date} ${e.t} ${e.d} (${e.n})`).join('\n')}`;
+            }
+        }
+        
         const hits = core.mems.filter(m => m.keys.some(k => txt.includes(k)));
         if (hits.length) sys += `\n[Memory]:\n${hits.map(h => `- ${h.info}`).join('\n')}`;
 
@@ -398,7 +518,6 @@ const core = {
             const reqBody = { model: core.conf.model, messages: apiMsgs, stream: true };
             const tempVal = parseFloat(core.conf.temp); if (!isNaN(tempVal)) reqBody.temperature = tempVal;
             const maxVal = parseInt(core.conf.maxTokens); if (!isNaN(maxVal) && maxVal > 0) reqBody.max_tokens = maxVal;
-
             const freqVal = parseFloat(core.conf.freq); if (!isNaN(freqVal)) reqBody.frequency_penalty = freqVal;
             const presVal = parseFloat(core.conf.pres); if (!isNaN(presVal)) reqBody.presence_penalty = presVal;
 
@@ -418,7 +537,6 @@ const core = {
                 });
                 document.getElementById('chat-box').scrollTop = 99999;
             }
-            // [核心修复] AI 回复结束，固定时间戳
             const aiTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
             aiDiv.innerHTML += `<div class="time">${aiTime}</div>`;
             aiDiv.oncontextmenu = (e) => { e.preventDefault(); ui.showCtx(e.pageX, e.pageY, 'ai', aiIdx); };
@@ -426,37 +544,12 @@ const core = {
             aiDiv.ontouchstart = (e) => { timer = setTimeout(() => ui.showCtx(e.touches[0].pageX, e.touches[0].pageY, 'ai', aiIdx), 1000); };
             aiDiv.ontouchend = () => clearTimeout(timer); aiDiv.ontouchmove = () => clearTimeout(timer);
             aiDiv.innerHTML += `<div class="replay-btn" onclick="core.speak('${final.replace(/'/g, "\\'").replace(/\n/g, ' ')}', true)">🔈 Replay</div>`;
-            
-            // 保存带时间的 AI 消息
             sess.msgs.push({ role: 'assistant', content: final, time: aiTime });
             core.saveSessions();
             if (core.autoTTS) core.speak(final);
         } catch (e) { aiDiv.innerHTML = 'Error: ' + e.message; }
     },
-
-    speak: async (text, force = false) => {
-        if (!core.autoTTS && !force) return;
-        const plain = text.replace(/[*#`]/g, '');
-        if (core.voiceConf.mode === 'native') {
-            const u = new SpeechSynthesisUtterance(plain);
-            const voices = speechSynthesis.getVoices();
-            const zh = voices.find(v => v.lang.includes('zh'));
-            if (zh) u.voice = zh;
-            speechSynthesis.speak(u);
-        } else {
-            const k = core.voiceConf.key || core.conf.key;
-            if (!k) return;
-            try {
-                const res = await fetch('https://api.openai.com/v1/audio/speech', {
-                    method: 'POST', headers: { 'Authorization': `Bearer ${k}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ model: "tts-1", input: plain, voice: core.voiceConf.voice })
-                });
-                const blob = await res.blob(); new Audio(URL.createObjectURL(blob)).play();
-            } catch (e) { }
-        }
-    },
     newSession: () => { const id = Date.now().toString(); core.sessions[id] = { id, title: 'New Chat', msgs: [] }; core.currSessId = id; core.saveSessions(); core.loadSession(id); ui.toggleSidebar(false); },
-    // [已修复] 加载消息时传入 m.time
     loadSession: (id) => { 
         if (!core.sessions[id]) return; 
         core.currSessId = id; 
@@ -464,7 +557,6 @@ const core = {
         document.getElementById('header-title').innerText = core.sessions[id].title; 
         const box = document.getElementById('chat-box'); 
         box.innerHTML = ''; 
-        // 关键：这里加上了 m.time
         core.sessions[id].msgs.forEach((m, i) => ui.bubble(m.role === 'assistant' ? 'ai' : 'user', m.content, m.img, m.file, i, m.time)); 
     },
     saveSessions: () => localStorage.setItem('v11_sessions', JSON.stringify(core.sessions)),
@@ -483,36 +575,6 @@ const core = {
             div.onclick = () => { core.loadSession(id); ui.toggleSidebar(false); };
             list.appendChild(div);
         });
-    },
-    delSess: (id, e) => { e.stopPropagation(); if (!confirm('Delete?')) return; delete core.sessions[id]; core.saveSessions(); if (core.currSessId === id) core.newSession(); else core.renderSessionList(); },
-    addMem: () => { const k = document.getElementById('new-mem-keys').value.trim(); const i = document.getElementById('new-mem-info').value.trim(); if (k && i) { core.mems.push({ keys: k.split(/[,，\s]+/).filter(k => k), info: i }); localStorage.setItem('v11_mems', JSON.stringify(core.mems)); core.renderMemCards(); document.getElementById('new-mem-keys').value = ''; document.getElementById('new-mem-info').value = ''; } },
-    delMem: (i) => { core.mems.splice(i, 1); localStorage.setItem('v11_mems', JSON.stringify(core.mems)); core.renderMemCards(); },
-    renderMemCards: () => { const b = document.getElementById('mem-list-container'); b.innerHTML = ''; core.mems.forEach((m, i) => { b.innerHTML += `<div class="mem-card"><div class="mem-keys"># ${m.keys.join(', ')}</div><div class="mem-info">${m.info}</div><button class="mem-del" onclick="core.delMem(${i})">×</button></div>`; }); },
-    addEv: async () => { const t = document.getElementById('ev-t').value; const d = document.getElementById('ev-txt').value; if (d) { const ev = { id: Date.now(), t, d, n: 'Reviewing...' }; core.evts.push(ev); core.evts.sort((a, b) => a.t.localeCompare(b.t)); localStorage.setItem('v11_evts', JSON.stringify(core.evts)); core.renderEvt(); document.getElementById('ev-txt').value = ''; if (core.conf.key) { try { const res = await fetch(core.conf.url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${core.conf.key}` }, body: JSON.stringify({ model: core.conf.model, messages: [{ role: 'system', content: core.conf.persona }, { role: 'user', content: `Added: "${d}" at ${t}. Comment(Chinese, <15 chars):` }], stream: false }) }); const j = await res.json(); ev.n = j.choices[0].message.content; localStorage.setItem('v11_evts', JSON.stringify(core.evts)); core.renderEvt(); } catch (e) { } } } },
-    delEv: (id) => { core.evts = core.evts.filter(e => e.id !== id); localStorage.setItem('v11_evts', JSON.stringify(core.evts)); core.renderEvt(); },
-    renderEvt: () => { const b = document.getElementById('evt-list'); b.innerHTML = ''; core.evts.forEach(e => { b.innerHTML += `<div class="evt"><div style="display:flex;justify-content:space-between"><b>${e.d}</b><span style="color:var(--accent)">${e.t}</span></div><div class="evt-n">${e.n}</div><button class="del" onclick="core.delEv(${e.id})">×</button></div>`; }); },
-    exportData: () => { const d = { conf: core.conf, voice: core.voiceConf, mems: core.mems, evts: core.evts, sessions: core.sessions }; const b = new Blob([JSON.stringify(d, null, 2)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'schiller_v11.json'; a.click(); },
-    
-    // [Updated] 修复导入数据逻辑，兼容新旧参数
-    importData: (i) => {
-        const r = new FileReader();
-        r.onload = (e) => {
-            try {
-                const d = JSON.parse(e.target.result);
-                // 使用更通用的方式导入 conf，不再死板地列举 key
-                if (d.conf) {
-                      Object.keys(d.conf).forEach(k => {
-                        localStorage.setItem('v11_' + k, d.conf[k]);
-                      });
-                }
-                if (d.voice) localStorage.setItem('v11_voice', JSON.stringify(d.voice));
-                if (d.mems) localStorage.setItem('v11_mems', JSON.stringify(d.mems));
-                if (d.evts) localStorage.setItem('v11_evts', JSON.stringify(d.evts));
-                if (d.sessions) localStorage.setItem('v11_sessions', JSON.stringify(d.sessions));
-                alert('Restored'); location.reload();
-            } catch (err) { alert('Error: ' + err.message); }
-        };
-        r.readAsText(i.files[0]);
     }
 };
 core.init();
