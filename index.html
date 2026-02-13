@@ -160,14 +160,21 @@
                 <div class="tab" onclick="ui.tab('bkp')">Data</div>
             </div>
 
-            <div id="tab-conn" class="tab-content active">
+          <div id="tab-conn" class="tab-content active">
                 <button class="btn" onclick="ui.toggleTheme()" style="width:100%; margin-bottom:15px; background:var(--bg); color:var(--text); border:1px solid var(--accent); font-weight:bold;">
                     Switch Theme (Day/Night)
                 </button>
 
-                <div class="row" style="display:flex;gap:10px;">
+                <label>API Format (底层协议)</label>
+                <select id="c-fmt" class="inp" style="border-color:var(--accent); color:var(--accent); font-weight:bold;">
+                    <option value="openai">OpenAI 格式 (通用/DeepSeek/GPT)</option>
+                    <option value="gemini">Google Gemini 格式</option>
+                </select>
+
+                <div class="row" style="display:flex;gap:10px; margin-bottom:12px;">
                     <button class="btn" style="flex:1" onclick="core.preset('ds')">DeepSeek</button>
                     <button class="btn" style="flex:1" onclick="core.preset('oa')">GPT-4o</button>
+                    <button class="btn" style="flex:1" onclick="core.preset('gemini')">Gemini</button>
                 </div>
 
                 <label>Chat API Key</label><input type="password" id="c-key" class="inp">
