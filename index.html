@@ -75,26 +75,28 @@
     </div>
 
     <div class="cal-controls" style="display:flex; justify-content:space-between; align-items:center; padding:10px 15px;">
-        <button class="btn" style="width:auto; padding:5px 15px;" onclick="core.changeMonth(-1)">←</button>
-        <div id="cal-month-title" style="font-weight:bold; font-size:1.1rem;">Loading...</div>
-        <button class="btn" style="width:auto; padding:5px 15px;" onclick="core.changeMonth(1)">→</button>
+        <button class="icon-btn" onclick="core.changeMonth(-1)">❮</button>
+        <div id="cal-title" style="font-weight:bold; font-size:1.1rem; color:var(--accent);">Loading...</div>
+        <button class="icon-btn" onclick="core.changeMonth(1)">❯</button>
     </div>
 
-    <div id="cal-grid" class="cal-grid" style="display:grid; grid-template-columns:repeat(7, 1fr); gap:5px; padding:0 10px;">
+    <div id="cal-grid" class="cal-grid">
         </div>
 
-    <div style="padding:15px 15px 5px 15px; font-weight:bold; color:var(--accent); border-top:1px solid var(--border); margin-top:15px;">
-        Events for: <span id="selected-date-disp">Today</span>
+    <div style="padding:15px 15px 5px 15px; font-weight:bold; color:var(--text-sub); border-top:1px solid var(--border); margin-top:15px; font-size:0.9rem;">
+        Plans for: 
+        <span id="selected-date-label" style="color:var(--accent);">Today</span>
     </div>
+    
     <div id="evt-list" style="flex:1;overflow-y:auto;padding:0 15px 15px 15px;"></div>
 
     <div id="add-box" style="padding:10px;background:var(--card);border-top:1px solid var(--border);display:flex;gap:8px;">
         <input type="time" id="ev-t" value="09:00" class="inp" style="width:auto;margin:0;">
         <input type="text" id="ev-txt" placeholder="Plan for this day..." class="inp" style="margin:0;flex:1;">
-        <button class="btn" onclick="core.addEv()" style="background:var(--accent);border:none;color:white;width:40px;">+</button>
+        <button class="btn" onclick="core.addEv()" style="background:var(--accent);border:none;color:white;width:40px;height:40px;border-radius:8px;">+</button>
     </div>
-</div>
-<div id="p-tune" class="page" style="background:var(--card);">
+
+</div><div id="p-tune" class="page" style="background:var(--card);">
     <header>
         <button class="h-btn" onclick="ui.nav('chat')">←</button>
         <h1>Personality Engine</h1>
