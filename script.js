@@ -53,16 +53,22 @@ const ui = {
         if (open) { sb.classList.add('open'); ov.style.display = 'block'; core.renderSessionList(); }
         else { sb.classList.remove('open'); ov.style.display = 'none'; }
     },
-    bubble: (role, txt, img = null, file = null, msgIndex = null) => {
+    
+    // [已修复] bubble 函数现在接受 timeStr 参数
+    bubble: (role, txt, img = null, file = null, msgIndex = null, timeStr = null) => {
         const d = document.createElement('div'); d.className = `bubble ${role === 'user' ? 'u-msg' : 'a-msg'}`;
         let content = "";
         if (img) content += `<img src="${img}">`;
         if (file) content += `<div class="file-tag">📄 ${file}</div>`;
         content += role === 'user' ? txt : marked.parse(txt);
 
-        const now = new Date();
-        const tStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-        content += `<div class="time">${tStr}</div>`;
+        // [核心修复] 如果传了固定时间就用固定的，否则生成新的
+        let tDisplay = timeStr;
+        if (!tDisplay) {
+            const now = new Date();
+            tDisplay = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        }
+        content += `<div class="time">${tDisplay}</div>`;
 
         if (role !== 'user') {
             const rawTxt = txt.replace(/"/g, '&quot;');
@@ -339,6 +345,7 @@ const core = {
         }
     },
 
+    // [已修复] 发送逻辑：写入固定时间戳
     send: async () => {
         const el = document.getElementById('u-in'); const txt = el.value.trim();
         if ((!txt && !core.currUpload.img && !core.currUpload.fileText) || !core.conf.key) return;
@@ -346,9 +353,15 @@ const core = {
         const sess = core.sessions[core.currSessId];
         if (sess.msgs.length === 0 && txt) { sess.title = txt.substring(0, 12) + '...'; document.getElementById('header-title').innerText = sess.title; }
 
-        sess.msgs.push({ role: 'user', content: txt, img: core.currUpload.img, file: core.currUpload.fileName });
+        // [核心修复] 获取用户发送时间并固定
+        const now = new Date();
+        const userTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+        // 保存消息时带上 time 字段
+        sess.msgs.push({ role: 'user', content: txt, img: core.currUpload.img, file: core.currUpload.fileName, time: userTime });
         const userIdx = sess.msgs.length - 1;
-        ui.bubble('user', txt, core.currUpload.img, core.currUpload.fileName, userIdx);
+        // 传给 ui.bubble
+        ui.bubble('user', txt, core.currUpload.img, core.currUpload.fileName, userIdx, userTime);
 
         let finalText = txt;
         if (core.currUpload.fileText) finalText += `\n\n[FILE CONTENT: ${core.currUpload.fileName}]\n${core.currUpload.fileText}\n[END FILE]`;
@@ -363,7 +376,6 @@ const core = {
 
         const aiIdx = sess.msgs.length; const aiDiv = ui.bubble('ai', 'Thinking...', null, null, aiIdx);
 
-        const now = new Date();
         const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
         const timeString = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')} ${days[now.getDay()]}`;
 
@@ -387,7 +399,6 @@ const core = {
             const tempVal = parseFloat(core.conf.temp); if (!isNaN(tempVal)) reqBody.temperature = tempVal;
             const maxVal = parseInt(core.conf.maxTokens); if (!isNaN(maxVal) && maxVal > 0) reqBody.max_tokens = maxVal;
 
-            // [Updated] 核心：发送时携带频率和存在惩罚参数
             const freqVal = parseFloat(core.conf.freq); if (!isNaN(freqVal)) reqBody.frequency_penalty = freqVal;
             const presVal = parseFloat(core.conf.pres); if (!isNaN(presVal)) reqBody.presence_penalty = presVal;
 
@@ -407,13 +418,17 @@ const core = {
                 });
                 document.getElementById('chat-box').scrollTop = 99999;
             }
-            aiDiv.innerHTML += `<div class="time">${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}</div>`;
+            // [核心修复] AI 回复结束，固定时间戳
+            const aiTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+            aiDiv.innerHTML += `<div class="time">${aiTime}</div>`;
             aiDiv.oncontextmenu = (e) => { e.preventDefault(); ui.showCtx(e.pageX, e.pageY, 'ai', aiIdx); };
             let timer;
             aiDiv.ontouchstart = (e) => { timer = setTimeout(() => ui.showCtx(e.touches[0].pageX, e.touches[0].pageY, 'ai', aiIdx), 1000); };
             aiDiv.ontouchend = () => clearTimeout(timer); aiDiv.ontouchmove = () => clearTimeout(timer);
             aiDiv.innerHTML += `<div class="replay-btn" onclick="core.speak('${final.replace(/'/g, "\\'").replace(/\n/g, ' ')}', true)">🔈 Replay</div>`;
-            sess.msgs.push({ role: 'assistant', content: final });
+            
+            // 保存带时间的 AI 消息
+            sess.msgs.push({ role: 'assistant', content: final, time: aiTime });
             core.saveSessions();
             if (core.autoTTS) core.speak(final);
         } catch (e) { aiDiv.innerHTML = 'Error: ' + e.message; }
@@ -441,7 +456,17 @@ const core = {
         }
     },
     newSession: () => { const id = Date.now().toString(); core.sessions[id] = { id, title: 'New Chat', msgs: [] }; core.currSessId = id; core.saveSessions(); core.loadSession(id); ui.toggleSidebar(false); },
-    loadSession: (id) => { if (!core.sessions[id]) return; core.currSessId = id; localStorage.setItem('v11_curr_id', id); document.getElementById('header-title').innerText = core.sessions[id].title; const box = document.getElementById('chat-box'); box.innerHTML = ''; core.sessions[id].msgs.forEach((m, i) => ui.bubble(m.role === 'assistant' ? 'ai' : 'user', m.content, m.img, m.file, i)); },
+    // [已修复] 加载消息时传入 m.time
+    loadSession: (id) => { 
+        if (!core.sessions[id]) return; 
+        core.currSessId = id; 
+        localStorage.setItem('v11_curr_id', id); 
+        document.getElementById('header-title').innerText = core.sessions[id].title; 
+        const box = document.getElementById('chat-box'); 
+        box.innerHTML = ''; 
+        // 关键：这里加上了 m.time
+        core.sessions[id].msgs.forEach((m, i) => ui.bubble(m.role === 'assistant' ? 'ai' : 'user', m.content, m.img, m.file, i, m.time)); 
+    },
     saveSessions: () => localStorage.setItem('v11_sessions', JSON.stringify(core.sessions)),
     renderSessionList: () => {
         const list = document.getElementById('session-list');
@@ -476,9 +501,9 @@ const core = {
                 const d = JSON.parse(e.target.result);
                 // 使用更通用的方式导入 conf，不再死板地列举 key
                 if (d.conf) {
-                     Object.keys(d.conf).forEach(k => {
+                      Object.keys(d.conf).forEach(k => {
                         localStorage.setItem('v11_' + k, d.conf[k]);
-                     });
+                      });
                 }
                 if (d.voice) localStorage.setItem('v11_voice', JSON.stringify(d.voice));
                 if (d.mems) localStorage.setItem('v11_mems', JSON.stringify(d.mems));
