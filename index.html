@@ -80,8 +80,7 @@
         <button class="icon-btn" onclick="core.changeMonth(1)">❯</button>
     </div>
 
-    <div id="cal-grid" class="cal-grid">
-        </div>
+    <div id="cal-grid" class="cal-grid"></div>
 
     <div style="padding:15px 15px 5px 15px; font-weight:bold; color:var(--text-sub); border-top:1px solid var(--border); margin-top:15px; font-size:0.9rem;">
         Plans for: 
@@ -95,8 +94,9 @@
         <input type="text" id="ev-txt" placeholder="Plan for this day..." class="inp" style="margin:0;flex:1;">
         <button class="btn" onclick="core.addEv()" style="background:var(--accent);border:none;color:white;width:40px;height:40px;border-radius:8px;">+</button>
     </div>
+</div>
 
-</div><div id="p-tune" class="page" style="background:var(--card);">
+<div id="p-tune" class="page" style="background:var(--card);">
     <header>
         <button class="h-btn" onclick="ui.nav('chat')">←</button>
         <h1>Personality Engine</h1>
@@ -146,7 +146,7 @@
 <nav>
     <div class="nav-item active" onclick="ui.nav('chat')"><span> Chat</span></div>
     <div class="nav-item" onclick="ui.nav('cal')"><span> Plan</span></div>
-    </nav>
+</nav>
 
 <div id="set-modal">
     <div class="modal">
@@ -157,39 +157,41 @@
             <div class="tab" onclick="ui.tab('bkp')">Data</div>
         </div>
 
-       <div id="tab-conn" class="tab-content active">
-    <button class="btn" onclick="ui.toggleTheme()" style="width:100%; margin-bottom:15px; background:var(--bg); color:var(--text); border:1px solid var(--accent); font-weight:bold;">
-        🌗 Switch Theme (Day/Night)
-    </button>
+        <div id="tab-conn" class="tab-content active">
+            <button class="btn" onclick="ui.toggleTheme()" style="width:100%; margin-bottom:15px; background:var(--bg); color:var(--text); border:1px solid var(--accent); font-weight:bold;">
+                Switch Theme (Day/Night)
+            </button>
 
-    <div class="row" style="display:flex;gap:10px;">
-        <button class="btn" style="flex:1" onclick="core.preset('ds')">DeepSeek</button>
-        <button class="btn" style="flex:1" onclick="core.preset('oa')">GPT-4o</button>
-    </div>
+            <div class="row" style="display:flex;gap:10px;">
+                <button class="btn" style="flex:1" onclick="core.preset('ds')">DeepSeek</button>
+                <button class="btn" style="flex:1" onclick="core.preset('oa')">GPT-4o</button>
+            </div>
 
-    <label>Chat API Key</label><input type="password" id="c-key" class="inp">
-    <label>Endpoint</label><input type="text" id="c-url" class="inp">
-    <label>Model</label><input type="text" id="c-mod" class="inp">
-    <label>Persona</label><textarea id="c-per" class="inp" rows="3"></textarea>
-    
-    <div style="background:var(--card); padding:10px; border-radius:8px; border:1px solid var(--border); margin-bottom:12px;">
-        <label>Temperature: <span id="t-val" style="color:var(--accent)">1.0</span> (发散度)</label>
-        <input type="range" id="c-temp" class="slider" min="0" max="2" step="0.1" value="1.0" oninput="document.getElementById('t-val').innerText=this.value">
-        
-        <label>Freq Penalty: <span id="val-freq" style="color:var(--accent)">0.0</span> (拒绝重复)</label>
-        <input type="range" id="c-freq" class="slider" min="-2" max="2" step="0.1" value="0" oninput="document.getElementById('val-freq').innerText=this.value">
-        
-        <label>Pres Penalty: <span id="val-pres" style="color:var(--accent)">0.0</span> (引入新词)</label>
-        <input type="range" id="c-pres" class="slider" min="-2" max="2" step="0.1" value="0" oninput="document.getElementById('val-pres').innerText=this.value">
+            <label>Chat API Key</label><input type="password" id="c-key" class="inp">
+            <label>Endpoint</label><input type="text" id="c-url" class="inp">
+            <label>Model</label><input type="text" id="c-mod" class="inp">
+            <label>Persona</label><textarea id="c-per" class="inp" rows="3"></textarea>
+            
+            <div style="background:var(--card); padding:10px; border-radius:8px; border:1px solid var(--border); margin-bottom:12px;">
+                <label>Temperature: <span id="t-val" style="color:var(--accent)">1.0</span> (发散度)</label>
+                <input type="range" id="c-temp" class="slider" min="0" max="2" step="0.1" value="1.0" oninput="document.getElementById('t-val').innerText=this.value">
+                
+                <label>Freq Penalty: <span id="val-freq" style="color:var(--accent)">0.0</span> (拒绝重复)</label>
+                <input type="range" id="c-freq" class="slider" min="-2" max="2" step="0.1" value="0" oninput="document.getElementById('val-freq').innerText=this.value">
+                
+                <label>Pres Penalty: <span id="val-pres" style="color:var(--accent)">0.0</span> (引入新词)</label>
+                <input type="range" id="c-pres" class="slider" min="-2" max="2" step="0.1" value="0" oninput="document.getElementById('val-pres').innerText=this.value">
 
-        <label style="margin-top:10px">Max Tokens (0=Default)</label>
-        <input type="number" id="c-max" class="inp" value="0" style="margin-bottom:0;">
-        <label style="margin-top:15px">Min Output (强制长回复): <span id="val-min" style="color:var(--accent)">0</span> 字</label>
-        <input type="range" id="c-min" class="slider" min="0" max="2000" step="100" value="0" oninput="document.getElementById('val-min').innerText=this.value">
-    </div>
+                <label style="margin-top:10px">Max Tokens (0=Default)</label>
+                <input type="number" id="c-max" class="inp" value="0">
 
-    <button class="btn primary" onclick="core.saveConn()">Save Config</button>
-</div>
+                <label style="margin-top:10px">Min Output (最低回复字数):</label>
+                <input type="number" id="c-min" class="inp" placeholder="例如: 500" style="margin-bottom:0;">
+                <small style="color:var(--text-sub); font-size:0.7rem;">提示：AI 会尝试以此字数作为回复的底线。</small>
+            </div>
+
+            <button class="btn primary" onclick="core.saveConn()">Save Config</button>
+        </div>
         
         <div id="tab-voice" class="tab-content">
              <label>Voice Engine</label>
@@ -227,6 +229,6 @@
     </div>
 </div>
 
-<script src="script.js?v=9.9"></script>
+<script src="script.js?v=11.1"></script>
 </body>
 </html>

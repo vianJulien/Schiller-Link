@@ -106,7 +106,6 @@ const ui = {
 };
 
 const core = {
-    // [Updated] 增加了 minOutput 参数
     conf: { 
         url: '', key: '', model: '', persona: '', temp: '1.0', maxTokens: '0', 
         freq: '0', pres: '0', minOutput: '0',
@@ -117,7 +116,6 @@ const core = {
     autoTTS: false,
     currUpload: { img: null, fileText: null, fileName: null },
     
-    // Calendar vars
     calDate: new Date(),
     selectedDateStr: '',
 
@@ -146,9 +144,8 @@ const core = {
         setVal('c-pres', core.conf.pres);
         setTxt('val-pres', core.conf.pres);
         
-        // [Updated] 初始化 minOutput 滑块
+        // [修复] 只保留输入框的赋值，去掉不存在的 span 标签赋值
         setVal('c-min', core.conf.minOutput);
-        setTxt('val-min', core.conf.minOutput);
 
         ['warm', 'direct', 'intel', 'empathy', 'obed'].forEach(k => {
             const val = core.conf['p_' + k];
@@ -199,7 +196,6 @@ const core = {
         const elFreq = document.getElementById('c-freq'); if(elFreq) core.conf.freq = elFreq.value;
         const elPres = document.getElementById('c-pres'); if(elPres) core.conf.pres = elPres.value;
         
-        // [Updated] 保存 minOutput
         const elMin = document.getElementById('c-min'); if(elMin) core.conf.minOutput = elMin.value;
 
         Object.keys(core.conf).forEach(k => {
@@ -502,10 +498,10 @@ const core = {
         let sys = core.conf.persona + `\n[Current Date: ${timeString}]\n`;
         sys += core.generatePersonalityPrompt();
         
-        // [Updated] 加入最低输出限制的指令
+        // [精化版] 强化字数限制指令
         const minVal = parseInt(core.conf.minOutput);
         if (!isNaN(minVal) && minVal > 0) {
-            sys += `\n[CRITICAL FORMATTING RULE]: Your response MUST contain at least ${minVal} characters. Expand your reasoning, provide detailed examples, and elaborate thoroughly to meet this strict length requirement. DO NOT give short answers.\n`;
+            sys += `\n[强制指令]: 你的本次回复内容必须不少于 ${minVal} 个汉字/字符。请展开论述，增加细节描写、背景解释或逻辑推导，严禁提供短于此字数的简短回答。如果内容不足，请从更多维度深入探讨。\n`;
         }
 
         if (core.evts.length) {
