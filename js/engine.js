@@ -1,5 +1,5 @@
 // ==========================================
-// CORE ENGINE MODULE (V1.3 - Universal Edition)
+// CORE ENGINE MODULE (V1.4 - Stable & Universal)
 // ==========================================
 
 Object.assign(core, {
@@ -40,21 +40,20 @@ Object.assign(core, {
         if (!core.currSessId || !core.sessions[core.currSessId]) core.newSession();
         else core.loadSession(core.currSessId);
 
-        // 初始化日期与日历 (依赖于 calendar.js)
+        // 初始化日期与日历
         const now = new Date();
         core.selectedDateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
-        // 尝试渲染日历，防止报错卡死
         if(typeof calendar !== 'undefined') {
             calendar.renderCalendar();
             calendar.renderEvt(); 
         }
         
-        // 启动定时器与问候
+        // 启动定时器
         setTimeout(core.checkDailyGreeting, 2000); 
         setInterval(core.clockTick, 1000);
     },
 
-    // 2. 基础辅助与设置保存
+    // 2. 基础辅助
     clockTick: () => {
         const n = new Date();
         const cn = new Date(n.getTime() + (n.getTimezoneOffset() * 60000) + (3600000 * 8));
@@ -68,9 +67,8 @@ Object.assign(core, {
         const elMod = document.getElementById('c-mod'); if(elMod) elMod.value = d[1];
     },
 
-    // [新增功能] 保存并测试连接 (V1.2)
+    // 3. 连接与保存模块 (含 Toast)
     saveConn: async () => {
-        // 读取 UI
         core.conf.url = document.getElementById('c-url').value.trim(); 
         core.conf.key = document.getElementById('c-key').value.trim();
         core.conf.model = document.getElementById('c-mod').value.trim(); 
@@ -82,20 +80,16 @@ Object.assign(core, {
         const elPres = document.getElementById('c-pres'); if(elPres) core.conf.pres = elPres.value;
         const elMin = document.getElementById('c-min'); if(elMin) core.conf.minOutput = elMin.value;
 
-        // 保存配置
         Object.keys(core.conf).forEach(k => {
             if (!k.startsWith('p_')) localStorage.setItem('v11_' + k, core.conf[k]);
         });
 
-        // 校验逻辑
         if (!core.conf.url || !core.conf.key) {
-            core.showToast('⚠️ 缺少配置，请填写 URL 和 Key。', 'error');
+            core.showToast('⚠️ 缺少配置', 'error');
             return;
         }
         await core.testConnection();
     },
-
-    // [新增功能] 低饱和度弹窗 (Toast)
     showToast: (msg, type = 'success') => {
         let toast = document.getElementById('vian-toast');
         if (!toast) {
@@ -103,21 +97,14 @@ Object.assign(core, {
             toast.id = 'vian-toast';
             document.body.appendChild(toast);
         }
-        const colors = { 
-            success: { bg: '#c0d1c0', text: '#6b5e59' }, // 豆绿
-            error: { bg: '#dfc4c0', text: '#6b5e59' },   // 灰粉
-            loading: { bg: '#f7f4ef', text: '#a39995' }  // 燕麦
-        };
+        const colors = { success: { bg: '#c0d1c0', text: '#6b5e59' }, error: { bg: '#dfc4c0', text: '#6b5e59' }, loading: { bg: '#f7f4ef', text: '#a39995' } };
         const theme = colors[type] || colors.success;
         toast.innerText = msg;
         toast.style.cssText = `position:fixed;top:20px;left:50%;transform:translateX(-50%);background:${theme.bg};color:${theme.text};padding:12px 24px;border-radius:20px;box-shadow:0 8px 20px rgba(107,94,89,0.15);font-weight:bold;z-index:10000;transition:all 0.4s;opacity:0;top:-50px;pointer-events:none;`;
-        
         requestAnimationFrame(() => { toast.style.opacity = '1'; toast.style.top = '30px'; });
         if (core.toastTimer) clearTimeout(core.toastTimer);
         core.toastTimer = setTimeout(() => { toast.style.opacity = '0'; toast.style.top = '-50px'; }, 3000);
     },
-
-    // [新增功能] 连接探针
     testConnection: async () => {
         core.showToast('正在连接...', 'loading');
         try {
@@ -126,12 +113,12 @@ Object.assign(core, {
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${core.conf.key}` },
                 body: JSON.stringify({ model: core.conf.model, messages: [{ role: 'user', content: 'hi' }], max_tokens: 1 })
             });
-            if (res.ok) core.showToast('✅ 连接成功。', 'success');
-            else core.showToast(`❌ 连接失败: ${res.status}`, 'error');
-        } catch (e) { core.showToast('❌ 网络或跨域错误 (CORS)', 'error'); }
+            if (res.ok) core.showToast('✅ 连接成功', 'success');
+            else core.showToast(`❌ 失败: ${res.status}`, 'error');
+        } catch (e) { core.showToast('❌ 网络错误', 'error'); }
     },
 
-    // 3. 动态性格引擎
+    // 4. 性格引擎
     testPersonality: () => {
         ['warm', 'direct', 'intel', 'empathy', 'obed'].forEach(k => {
             const val = document.getElementById('rng-' + k).value;
@@ -154,7 +141,7 @@ Object.assign(core, {
         return p;
     },
 
-    // 4. 语音、数据、记忆模块
+    // 5. 语音模块 (修复补全版)
     setVoiceMode: (m) => { core.voiceConf.mode = m; core.updateVoiceUI(); },
     updateVoiceUI: () => {
         document.getElementById('v-mode-disp').value = core.voiceConf.mode.toUpperCase();
@@ -166,7 +153,31 @@ Object.assign(core, {
         localStorage.setItem('v11_voice', JSON.stringify(core.voiceConf)); alert('Voice Saved.');
     },
     toggleAutoTTS: () => { core.autoTTS = !core.autoTTS; document.getElementById('tts-indicator').classList.toggle('active', core.autoTTS); if (core.autoTTS) core.speak("Audio On", true); },
-    exportData: () => { const d = { conf: core.conf, voice: core.voiceConf, mems: core.mems, evts: core.evts, sessions: core.sessions }; const b = new Blob([JSON.stringify(d, null, 2)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'schiller_v12.json'; a.click(); },
+    // ⚠️ 之前丢失的 speak 函数在这里补上了！
+    speak: async (text, force = false) => {
+        if (!core.autoTTS && !force) return;
+        if (core.voiceConf.mode !== 'openai') {
+            window.speechSynthesis.cancel();
+            const u = new SpeechSynthesisUtterance(text);
+            const voices = window.speechSynthesis.getVoices();
+            if (core.voiceConf.voice) { const v = voices.find(v => v.name === core.voiceConf.voice); if (v) u.voice = v; }
+            window.speechSynthesis.speak(u);
+        } else if (core.voiceConf.key) {
+            try {
+                const res = await fetch('https://api.openai.com/v1/audio/speech', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${core.voiceConf.key}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ model: 'tts-1', input: text, voice: core.voiceConf.voice || 'alloy' })
+                });
+                const blob = await res.blob();
+                const audio = new Audio(URL.createObjectURL(blob));
+                audio.play();
+            } catch (e) { console.error('TTS Error:', e); }
+        }
+    },
+
+    // 6. 数据导入导出
+    exportData: () => { const d = { conf: core.conf, voice: core.voiceConf, mems: core.mems, evts: core.evts, sessions: core.sessions }; const b = new Blob([JSON.stringify(d, null, 2)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'schiller_v14.json'; a.click(); },
     importData: (i) => {
         const r = new FileReader();
         r.onload = (e) => {
@@ -182,11 +193,13 @@ Object.assign(core, {
         };
         r.readAsText(i.files[0]);
     },
+
+    // 7. 记忆模块
     addMem: () => { const k = document.getElementById('new-mem-keys').value.trim(); const info = document.getElementById('new-mem-info').value.trim(); if (k && info) { core.mems.push({ keys: k.split(/[,，\s]+/).filter(k => k), info: info }); localStorage.setItem('v11_mems', JSON.stringify(core.mems)); core.renderMemCards(); document.getElementById('new-mem-keys').value = ''; document.getElementById('new-mem-info').value = ''; } },
     delMem: (i) => { core.mems.splice(i, 1); localStorage.setItem('v11_mems', JSON.stringify(core.mems)); core.renderMemCards(); },
     renderMemCards: () => { const b = document.getElementById('mem-list-container'); b.innerHTML = ''; core.mems.forEach((m, i) => { b.innerHTML += `<div class="mem-card"><div class="mem-keys"># ${m.keys.join(', ')}</div><div class="mem-info">${m.info}</div><button class="mem-del" onclick="core.delMem(${i})">×</button></div>`; }); },
 
-    // 5. 文件与图片处理
+    // 8. 文件处理
     handleImg: (input) => {
         if (input.files && input.files[0]) {
             const reader = new FileReader();
@@ -227,7 +240,7 @@ Object.assign(core, {
         ui.clearPreviews(); document.getElementById('img-input').value = ''; document.getElementById('file-input').value = '';
     },
 
-    // 6. 聊天会话与历史管理
+    // 9. 会话管理
     editMsg: (idx) => {
         ui.hideCtx(); if (idx == null) return;
         const sess = core.sessions[core.currSessId]; const msg = sess.msgs[idx]; if (!msg) return;
@@ -270,16 +283,15 @@ Object.assign(core, {
     editSessTitle: (id, e) => { e.stopPropagation(); const s = core.sessions[id]; if (!s) return; const newTitle = prompt('重命名当前档案:', s.title); if (newTitle !== null && newTitle.trim() !== '') { s.title = newTitle.trim(); core.saveSessions(); core.renderSessionList(); if (core.currSessId === id) document.getElementById('header-title').innerText = s.title; } },
     delSess: (id, e) => { e.stopPropagation(); if (!confirm('Delete?')) return; delete core.sessions[id]; core.saveSessions(); if (core.currSessId === id) core.newSession(); else core.renderSessionList(); },
 
-    // 7. 核心问候与对话发送 (已升级为通用版)
+    // 10. 问候与发送 (含通用版Prompt)
     checkDailyGreeting: () => {
         const now = new Date(); const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
         const lastGreet = localStorage.getItem('v11_last_greet');
         if (lastGreet !== today && core.conf.key) {
             const todayEvts = core.evts.filter(e => e.date === today);
-            // 将 "用户" 泛化
             const planText = todayEvts.length > 0 ? `User's Today Schedule: ${todayEvts.map(e => e.t + ' ' + e.d).join(', ')}` : "User has no specific plans.";
             
-            // 【核心修改】这里不再出现硬编码，而是直接读取 core.conf.persona
+            // 通用版问候Prompt
             const sysPrompt = `
                 [System Trigger]: Daily Greeting
                 [Date]: ${today}
@@ -294,7 +306,6 @@ Object.assign(core, {
                 [Current Persona]:
                 ${core.conf.persona}
             `;
-            
             core.triggerGreeting(sysPrompt);
             localStorage.setItem('v11_last_greet', today);
         }
@@ -311,7 +322,6 @@ Object.assign(core, {
             if (core.autoTTS) core.speak(reply);
         } catch (e) { aiDiv.innerHTML = "Greeting Error: " + e.message; }
     },
-    
     send: async () => {
         const el = document.getElementById('u-in'); const txt = el.value.trim();
         if ((!txt && !core.currUpload.img && !core.currUpload.fileText) || !core.conf.key) return;
@@ -384,6 +394,7 @@ Object.assign(core, {
             aiDiv.ontouchend = () => clearTimeout(timer); aiDiv.ontouchmove = () => clearTimeout(timer);
             aiDiv.innerHTML += `<div class="replay-btn" onclick="core.speak('${final.replace(/'/g, "\\'").replace(/\n/g, ' ')}', true)">🔈 Replay</div>`;
             sess.msgs.push({ role: 'assistant', content: final, time: aiTime }); core.saveSessions();
+            // 这里就是之前报错的源头，现在有 speak 函数支持了
             if (core.autoTTS) core.speak(final);
         } catch (e) { aiDiv.innerHTML = 'Error: ' + e.message; }
     }
