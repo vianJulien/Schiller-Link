@@ -64,18 +64,115 @@ Object.assign(core, {
         const elUrl = document.getElementById('c-url'); if(elUrl) elUrl.value = d[0];
         const elMod = document.getElementById('c-mod'); if(elMod) elMod.value = d[1];
     },
-    saveConn: () => {
-        core.conf.url = document.getElementById('c-url').value; core.conf.key = document.getElementById('c-key').value;
-        core.conf.model = document.getElementById('c-mod').value; core.conf.persona = document.getElementById('c-per').value;
-        core.conf.temp = document.getElementById('c-temp').value; core.conf.maxTokens = document.getElementById('c-max').value;
+    
+    // 1. 升级版保存逻辑：保存配置 -> 触发校验
+    saveConn: async () => {
+        // 读取并修剪输入值
+        core.conf.url = document.getElementById('c-url').value.trim(); 
+        core.conf.key = document.getElementById('c-key').value.trim();
+        core.conf.model = document.getElementById('c-mod').value.trim(); 
+        core.conf.persona = document.getElementById('c-per').value;
+        core.conf.temp = document.getElementById('c-temp').value; 
+        core.conf.maxTokens = document.getElementById('c-max').value;
+        
+        // 读取可选参数
         const elFreq = document.getElementById('c-freq'); if(elFreq) core.conf.freq = elFreq.value;
         const elPres = document.getElementById('c-pres'); if(elPres) core.conf.pres = elPres.value;
         const elMin = document.getElementById('c-min'); if(elMin) core.conf.minOutput = elMin.value;
 
+        // 保存到本地存储
         Object.keys(core.conf).forEach(k => {
             if (!k.startsWith('p_')) localStorage.setItem('v11_' + k, core.conf[k]);
         });
-        alert('Saved.');
+
+        // 核心改动：不再弹 alert，而是进行网络测试
+        if (!core.conf.url || !core.conf.key) {
+            core.showToast('⚠️ 缺少 URL 或 Key，AI无法连接。', 'error');
+            return;
+        }
+        
+        // 触发连接测试
+        await core.testConnection();
+    },
+
+    // 2. 新增：低饱和度风格的动态通知 (Toast)
+    showToast: (msg, type = 'success') => {
+        let toast = document.getElementById('vian-toast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'vian-toast';
+            document.body.appendChild(toast);
+        }
+        
+        // 你的专属色盘配置
+        const colors = {
+            success: { bg: '#c0d1c0', text: '#6b5e59' }, // 豆绿 (成功)
+            error: { bg: '#dfc4c0', text: '#6b5e59' },   // 灰粉 (错误)
+            loading: { bg: '#f7f4ef', text: '#a39995' }  // 燕麦 (加载中)
+        };
+        const theme = colors[type] || colors.success;
+
+        toast.innerText = msg;
+        // 动态注入样式
+        toast.style.cssText = `
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+            background: ${theme.bg}; color: ${theme.text};
+            padding: 12px 24px; border-radius: 20px;
+            box-shadow: 0 8px 20px rgba(107, 94, 89, 0.15);
+            font-family: sans-serif; font-size: 14px; font-weight: bold; z-index: 10000;
+            transition: all 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+            opacity: 0; top: -50px; pointer-events: none;
+        `;
+
+        // 动画入场
+        requestAnimationFrame(() => { 
+            toast.style.opacity = '1'; 
+            toast.style.top = '30px'; 
+        });
+
+        // 3秒后自动消失
+        if (core.toastTimer) clearTimeout(core.toastTimer);
+        core.toastTimer = setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.top = '-50px';
+        }, 3000);
+    },
+
+    // 3. 新增：连接测试探针
+    testConnection: async () => {
+        core.showToast( 'loading');
+        
+        try {
+            // 这里使用 fetch 发送一个极简请求
+            const res = await fetch(core.conf.url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${core.conf.key}`
+                },
+                body: JSON.stringify({
+                    model: core.conf.model,
+                    messages: [{ role: 'user', content: 'hi' }],
+                    max_tokens: 1
+                })
+            });
+
+            if (res.ok) {
+                core.showToast('✅ 连接成功', 'success');
+            } else {
+                if (res.status === 401) core.showToast('❌ 密钥 (Key) 错误，请检查。', 'error');
+                else if (res.status === 404) core.showToast('❌ 接口地址 (URL) 不存在。', 'error');
+                else core.showToast(`❌ 连接被拒绝 (代码: ${res.status})`, 'error');
+            }
+        } catch (e) {
+            console.error(e);
+            core.showToast('❌ 网络错误或跨域拦截 (CORS)', 'error');
+        }
+    },
+
+    // ==========================================
+    // 替换结束
+    // ==========================================
     },
 
     // 3. 动态性格引擎
