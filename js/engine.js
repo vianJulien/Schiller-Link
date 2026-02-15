@@ -1,5 +1,5 @@
 // ==========================================
-// CORE ENGINE MODULE
+// CORE ENGINE MODULE (V1.2 - Schiller Edition)
 // ==========================================
 
 Object.assign(core, {
@@ -14,7 +14,7 @@ Object.assign(core, {
         });
 
         if (!core.conf.url) core.preset('ds');
-        if (!core.conf.persona) core.conf.persona = "你叫艾德里安·席勒，教授。";
+        if (!core.conf.persona) core.conf.persona = "填写你的人设。";
 
         // 更新 UI 配置项
         const setVal = (id, v) => { const el = document.getElementById(id); if(el) el.value = v; };
@@ -43,8 +43,11 @@ Object.assign(core, {
         // 初始化日期与日历 (依赖于 calendar.js)
         const now = new Date();
         core.selectedDateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
-        calendar.renderCalendar();
-        calendar.renderEvt(); 
+        // 尝试渲染日历，防止报错卡死
+        if(typeof calendar !== 'undefined') {
+            calendar.renderCalendar();
+            calendar.renderEvt(); 
+        }
         
         // 启动定时器与问候
         setTimeout(core.checkDailyGreeting, 2000); 
@@ -64,10 +67,10 @@ Object.assign(core, {
         const elUrl = document.getElementById('c-url'); if(elUrl) elUrl.value = d[0];
         const elMod = document.getElementById('c-mod'); if(elMod) elMod.value = d[1];
     },
-    
-    // 1. 升级版保存逻辑：保存配置 -> 触发校验
+
+    // [新增功能] 保存并测试连接 (V1.2)
     saveConn: async () => {
-        // 读取并修剪输入值
+        // 读取 UI
         core.conf.url = document.getElementById('c-url').value.trim(); 
         core.conf.key = document.getElementById('c-key').value.trim();
         core.conf.model = document.getElementById('c-mod').value.trim(); 
@@ -75,27 +78,24 @@ Object.assign(core, {
         core.conf.temp = document.getElementById('c-temp').value; 
         core.conf.maxTokens = document.getElementById('c-max').value;
         
-        // 读取可选参数
         const elFreq = document.getElementById('c-freq'); if(elFreq) core.conf.freq = elFreq.value;
         const elPres = document.getElementById('c-pres'); if(elPres) core.conf.pres = elPres.value;
         const elMin = document.getElementById('c-min'); if(elMin) core.conf.minOutput = elMin.value;
 
-        // 保存到本地存储
+        // 保存配置
         Object.keys(core.conf).forEach(k => {
             if (!k.startsWith('p_')) localStorage.setItem('v11_' + k, core.conf[k]);
         });
 
-        // 核心改动：不再弹 alert，而是进行网络测试
+        // 校验逻辑
         if (!core.conf.url || !core.conf.key) {
-            core.showToast('⚠️ 缺少 URL 或 Key，AI无法连接。', 'error');
+            core.showToast('⚠️ 缺少配置，请填写 URL 和 Key。', 'error');
             return;
         }
-        
-        // 触发连接测试
         await core.testConnection();
     },
 
-    // 2. 新增：低饱和度风格的动态通知 (Toast)
+    // [新增功能] 低饱和度弹窗 (Toast)
     showToast: (msg, type = 'success') => {
         let toast = document.getElementById('vian-toast');
         if (!toast) {
@@ -103,76 +103,32 @@ Object.assign(core, {
             toast.id = 'vian-toast';
             document.body.appendChild(toast);
         }
-        
-        // 你的专属色盘配置
-        const colors = {
-            success: { bg: '#c0d1c0', text: '#6b5e59' }, // 豆绿 (成功)
-            error: { bg: '#dfc4c0', text: '#6b5e59' },   // 灰粉 (错误)
-            loading: { bg: '#f7f4ef', text: '#a39995' }  // 燕麦 (加载中)
+        const colors = { 
+            success: { bg: '#c0d1c0', text: '#6b5e59' }, // 豆绿
+            error: { bg: '#dfc4c0', text: '#6b5e59' },   // 灰粉
+            loading: { bg: '#f7f4ef', text: '#a39995' }  // 燕麦
         };
         const theme = colors[type] || colors.success;
-
         toast.innerText = msg;
-        // 动态注入样式
-        toast.style.cssText = `
-            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
-            background: ${theme.bg}; color: ${theme.text};
-            padding: 12px 24px; border-radius: 20px;
-            box-shadow: 0 8px 20px rgba(107, 94, 89, 0.15);
-            font-family: sans-serif; font-size: 14px; font-weight: bold; z-index: 10000;
-            transition: all 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28);
-            opacity: 0; top: -50px; pointer-events: none;
-        `;
-
-        // 动画入场
-        requestAnimationFrame(() => { 
-            toast.style.opacity = '1'; 
-            toast.style.top = '30px'; 
-        });
-
-        // 3秒后自动消失
+        toast.style.cssText = `position:fixed;top:20px;left:50%;transform:translateX(-50%);background:${theme.bg};color:${theme.text};padding:12px 24px;border-radius:20px;box-shadow:0 8px 20px rgba(107,94,89,0.15);font-weight:bold;z-index:10000;transition:all 0.4s;opacity:0;top:-50px;pointer-events:none;`;
+        
+        requestAnimationFrame(() => { toast.style.opacity = '1'; toast.style.top = '30px'; });
         if (core.toastTimer) clearTimeout(core.toastTimer);
-        core.toastTimer = setTimeout(() => {
-            toast.style.opacity = '0';
-            toast.style.top = '-50px';
-        }, 3000);
+        core.toastTimer = setTimeout(() => { toast.style.opacity = '0'; toast.style.top = '-50px'; }, 3000);
     },
 
-    // 3. 新增：连接测试探针
+    // [新增功能] 连接探针
     testConnection: async () => {
-        core.showToast( 'loading');
-        
+        core.showToast('正在连接...', 'loading');
         try {
-            // 这里使用 fetch 发送一个极简请求
             const res = await fetch(core.conf.url, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${core.conf.key}`
-                },
-                body: JSON.stringify({
-                    model: core.conf.model,
-                    messages: [{ role: 'user', content: 'hi' }],
-                    max_tokens: 1
-                })
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${core.conf.key}` },
+                body: JSON.stringify({ model: core.conf.model, messages: [{ role: 'user', content: 'hi' }], max_tokens: 1 })
             });
-
-            if (res.ok) {
-                core.showToast('✅ 连接成功', 'success');
-            } else {
-                if (res.status === 401) core.showToast('❌ 密钥 (Key) 错误，请检查。', 'error');
-                else if (res.status === 404) core.showToast('❌ 接口地址 (URL) 不存在。', 'error');
-                else core.showToast(`❌ 连接被拒绝 (代码: ${res.status})`, 'error');
-            }
-        } catch (e) {
-            console.error(e);
-            core.showToast('❌ 网络错误或跨域拦截 (CORS)', 'error');
-        }
-    },
-
-    // ==========================================
-    // 替换结束
-    // ==========================================
+            if (res.ok) core.showToast('✅ 连接成功。', 'success');
+            else core.showToast(`❌ 连接失败: ${res.status}`, 'error');
+        } catch (e) { core.showToast('❌ 网络或跨域错误 (CORS)', 'error'); }
     },
 
     // 3. 动态性格引擎
@@ -321,7 +277,7 @@ Object.assign(core, {
         if (lastGreet !== today && core.conf.key) {
             const todayEvts = core.evts.filter(e => e.date === today);
             const planText = todayEvts.length > 0 ? `用户今日计划: ${todayEvts.map(e => e.t + ' ' + e.d).join(', ')}` : "用户今日暂无特定计划";
-            const sysPrompt = `现在是 ${today}。这是用户今天第一次打开应用。请作为艾德里安·席勒(Adrian Schiller)教授，根据你的性格设定，主动向用户(Vian)发起早安/午安问候。简要提及日期，并针对"${planText}"发表一句评论或鼓励。不要等待用户输入。直接输出问候语。`;
+            const sysPrompt = `现在是 ${today}。这是用户今天第一次打开应用。请根据你的性格设定，主动向用户发起早安/午安问候。简要提及日期，并针对"${planText}"发表一句评论或鼓励。不要等待用户输入。直接输出问候语。`;
             core.triggerGreeting(sysPrompt);
             localStorage.setItem('v11_last_greet', today);
         }
