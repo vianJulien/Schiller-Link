@@ -14,7 +14,7 @@ Object.assign(core, {
         });
 
         if (!core.conf.url) core.preset('ds');
-        if (!core.conf.persona) core.conf.persona = "填写你的人设（例如：你叫席勒教授...）。";
+        if (!core.conf.persona) core.conf.persona = "填写你的人设。";
 
         // 更新 UI 配置项
         const setVal = (id, v) => { const el = document.getElementById(id); if(el) el.value = v; };
@@ -119,14 +119,14 @@ Object.assign(core, {
 
     // [新增功能] 连接探针
     testConnection: async () => {
-        core.showToast('正在寻找席勒教授...', 'loading');
+        core.showToast('正在连接...', 'loading');
         try {
             const res = await fetch(core.conf.url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${core.conf.key}` },
                 body: JSON.stringify({ model: core.conf.model, messages: [{ role: 'user', content: 'hi' }], max_tokens: 1 })
             });
-            if (res.ok) core.showToast('✅ 连接成功，AI已就位。', 'success');
+            if (res.ok) core.showToast('✅ 连接成功。', 'success');
             else core.showToast(`❌ 连接失败: ${res.status}`, 'error');
         } catch (e) { core.showToast('❌ 网络或跨域错误 (CORS)', 'error'); }
     },
