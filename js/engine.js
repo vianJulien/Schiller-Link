@@ -1,5 +1,5 @@
 // ==========================================
-// CORE ENGINE MODULE (V1.2 - Schiller Edition)
+// CORE ENGINE MODULE (V1.3 - Universal Edition)
 // ==========================================
 
 Object.assign(core, {
@@ -14,7 +14,7 @@ Object.assign(core, {
         });
 
         if (!core.conf.url) core.preset('ds');
-        if (!core.conf.persona) core.conf.persona = "填写你的人设。";
+        if (!core.conf.persona) core.conf.persona = "填写你的人设（例如：你叫席勒教授...）。";
 
         // 更新 UI 配置项
         const setVal = (id, v) => { const el = document.getElementById(id); if(el) el.value = v; };
@@ -119,14 +119,14 @@ Object.assign(core, {
 
     // [新增功能] 连接探针
     testConnection: async () => {
-        core.showToast('正在连接...', 'loading');
+        core.showToast('正在寻找席勒教授...', 'loading');
         try {
             const res = await fetch(core.conf.url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${core.conf.key}` },
                 body: JSON.stringify({ model: core.conf.model, messages: [{ role: 'user', content: 'hi' }], max_tokens: 1 })
             });
-            if (res.ok) core.showToast('✅ 连接成功。', 'success');
+            if (res.ok) core.showToast('✅ 连接成功，AI已就位。', 'success');
             else core.showToast(`❌ 连接失败: ${res.status}`, 'error');
         } catch (e) { core.showToast('❌ 网络或跨域错误 (CORS)', 'error'); }
     },
@@ -270,14 +270,31 @@ Object.assign(core, {
     editSessTitle: (id, e) => { e.stopPropagation(); const s = core.sessions[id]; if (!s) return; const newTitle = prompt('重命名当前档案:', s.title); if (newTitle !== null && newTitle.trim() !== '') { s.title = newTitle.trim(); core.saveSessions(); core.renderSessionList(); if (core.currSessId === id) document.getElementById('header-title').innerText = s.title; } },
     delSess: (id, e) => { e.stopPropagation(); if (!confirm('Delete?')) return; delete core.sessions[id]; core.saveSessions(); if (core.currSessId === id) core.newSession(); else core.renderSessionList(); },
 
-    // 7. 核心问候与对话发送
+    // 7. 核心问候与对话发送 (已升级为通用版)
     checkDailyGreeting: () => {
         const now = new Date(); const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
         const lastGreet = localStorage.getItem('v11_last_greet');
         if (lastGreet !== today && core.conf.key) {
             const todayEvts = core.evts.filter(e => e.date === today);
-            const planText = todayEvts.length > 0 ? `用户今日计划: ${todayEvts.map(e => e.t + ' ' + e.d).join(', ')}` : "用户今日暂无特定计划";
-            const sysPrompt = `现在是 ${today}。这是用户今天第一次打开应用。请根据你的性格设定，主动向用户发起早安/午安问候。简要提及日期，并针对"${planText}"发表一句评论或鼓励。不要等待用户输入。直接输出问候语。`;
+            // 将 "用户" 泛化
+            const planText = todayEvts.length > 0 ? `User's Today Schedule: ${todayEvts.map(e => e.t + ' ' + e.d).join(', ')}` : "User has no specific plans.";
+            
+            // 【核心修改】这里不再出现硬编码，而是直接读取 core.conf.persona
+            const sysPrompt = `
+                [System Trigger]: Daily Greeting
+                [Date]: ${today}
+                [User Context]: ${planText}
+                
+                [Instruction]: 
+                Based strictly on your persona settings below, initiate a greeting to the user.
+                - Briefly mention the date or time if relevant to your character.
+                - Comment on the user's schedule (or lack thereof) in your character's unique tone.
+                - Do not wait for user input. Output the greeting immediately.
+
+                [Current Persona]:
+                ${core.conf.persona}
+            `;
+            
             core.triggerGreeting(sysPrompt);
             localStorage.setItem('v11_last_greet', today);
         }
