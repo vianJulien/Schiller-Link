@@ -1,5 +1,5 @@
 // ==========================================
-// CORE ENGINE MODULE (V1.4 - Stable & Universal)
+// CORE ENGINE MODULE (V1.5 - Universal + Claude Fix)
 // ==========================================
 
 Object.assign(core, {
@@ -67,7 +67,7 @@ Object.assign(core, {
         const elMod = document.getElementById('c-mod'); if(elMod) elMod.value = d[1];
     },
 
-    // 3. 连接与保存模块 (含 Toast)
+    // 3. 连接与保存模块
     saveConn: async () => {
         core.conf.url = document.getElementById('c-url').value.trim(); 
         core.conf.key = document.getElementById('c-key').value.trim();
@@ -141,7 +141,7 @@ Object.assign(core, {
         return p;
     },
 
-    // 5. 语音模块 (修复补全版)
+    // 5. 语音模块
     setVoiceMode: (m) => { core.voiceConf.mode = m; core.updateVoiceUI(); },
     updateVoiceUI: () => {
         document.getElementById('v-mode-disp').value = core.voiceConf.mode.toUpperCase();
@@ -153,7 +153,6 @@ Object.assign(core, {
         localStorage.setItem('v11_voice', JSON.stringify(core.voiceConf)); alert('Voice Saved.');
     },
     toggleAutoTTS: () => { core.autoTTS = !core.autoTTS; document.getElementById('tts-indicator').classList.toggle('active', core.autoTTS); if (core.autoTTS) core.speak("Audio On", true); },
-    // ⚠️ 之前丢失的 speak 函数在这里补上了！
     speak: async (text, force = false) => {
         if (!core.autoTTS && !force) return;
         if (core.voiceConf.mode !== 'openai') {
@@ -177,7 +176,7 @@ Object.assign(core, {
     },
 
     // 6. 数据导入导出
-    exportData: () => { const d = { conf: core.conf, voice: core.voiceConf, mems: core.mems, evts: core.evts, sessions: core.sessions }; const b = new Blob([JSON.stringify(d, null, 2)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'schiller_v14.json'; a.click(); },
+    exportData: () => { const d = { conf: core.conf, voice: core.voiceConf, mems: core.mems, evts: core.evts, sessions: core.sessions }; const b = new Blob([JSON.stringify(d, null, 2)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'schiller_v15.json'; a.click(); },
     importData: (i) => {
         const r = new FileReader();
         r.onload = (e) => {
@@ -194,7 +193,7 @@ Object.assign(core, {
         r.readAsText(i.files[0]);
     },
 
-    // 7. 记忆模块
+    // 7. 记忆模块 (小写优化版)
     addMem: () => { const k = document.getElementById('new-mem-keys').value.trim(); const info = document.getElementById('new-mem-info').value.trim(); if (k && info) { core.mems.push({ keys: k.split(/[,，\s]+/).filter(k => k), info: info }); localStorage.setItem('v11_mems', JSON.stringify(core.mems)); core.renderMemCards(); document.getElementById('new-mem-keys').value = ''; document.getElementById('new-mem-info').value = ''; } },
     delMem: (i) => { core.mems.splice(i, 1); localStorage.setItem('v11_mems', JSON.stringify(core.mems)); core.renderMemCards(); },
     renderMemCards: () => { const b = document.getElementById('mem-list-container'); b.innerHTML = ''; core.mems.forEach((m, i) => { b.innerHTML += `<div class="mem-card"><div class="mem-keys"># ${m.keys.join(', ')}</div><div class="mem-info">${m.info}</div><button class="mem-del" onclick="core.delMem(${i})">×</button></div>`; }); },
@@ -283,7 +282,7 @@ Object.assign(core, {
     editSessTitle: (id, e) => { e.stopPropagation(); const s = core.sessions[id]; if (!s) return; const newTitle = prompt('重命名当前档案:', s.title); if (newTitle !== null && newTitle.trim() !== '') { s.title = newTitle.trim(); core.saveSessions(); core.renderSessionList(); if (core.currSessId === id) document.getElementById('header-title').innerText = s.title; } },
     delSess: (id, e) => { e.stopPropagation(); if (!confirm('Delete?')) return; delete core.sessions[id]; core.saveSessions(); if (core.currSessId === id) core.newSession(); else core.renderSessionList(); },
 
-    // 10. 问候与发送 (含通用版Prompt)
+    // 10. 问候与发送 (含 Claude 修复版核心)
     checkDailyGreeting: () => {
         const now = new Date(); const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
         const lastGreet = localStorage.getItem('v11_last_greet');
@@ -291,7 +290,6 @@ Object.assign(core, {
             const todayEvts = core.evts.filter(e => e.date === today);
             const planText = todayEvts.length > 0 ? `User's Today Schedule: ${todayEvts.map(e => e.t + ' ' + e.d).join(', ')}` : "User has no specific plans.";
             
-            // 通用版问候Prompt
             const sysPrompt = `
                 [System Trigger]: Daily Greeting
                 [Date]: ${today}
@@ -358,7 +356,8 @@ Object.assign(core, {
             if(futureEvts.length > 0) { sys += `\n[Upcoming Schedule]:\n${futureEvts.slice(0, 5).map(e => `- ${e.date} ${e.t} ${e.d} (${e.n})`).join('\n')}`; }
         }
         
-        const hits = core.mems.filter(m => m.keys.some(k => txt.includes(k)));
+        // 记忆检索优化：不区分大小写
+        const hits = core.mems.filter(m => m.keys.some(k => txt.toLowerCase().includes(k.toLowerCase())));
         if (hits.length) sys += `\n[Memory]:\n${hits.map(h => `- ${h.info}`).join('\n')}`;
 
         const apiMsgs = [{ role: 'system', content: sys }];
@@ -377,16 +376,41 @@ Object.assign(core, {
             const presVal = parseFloat(core.conf.pres); if (!isNaN(presVal)) reqBody.presence_penalty = presVal;
 
             const res = await fetch(core.conf.url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${core.conf.key}` }, body: JSON.stringify(reqBody) });
+            
+            // 【V1.5 核心修复：Claude 柔性解析器】
             const r = res.body.getReader(); const dec = new TextDecoder();
             let final = ''; aiDiv.innerHTML = '';
+            let buffer = ''; 
+
             while (true) {
-                const { done, value } = await r.read(); if (done) break;
-                const chunk = dec.decode(value, { stream: true });
-                chunk.split('\n').forEach(l => {
-                    if (l.startsWith('data: ') && l !== 'data: [DONE]') { try { final += JSON.parse(l.slice(6)).choices[0].delta.content || ''; aiDiv.innerHTML = marked.parse(final); } catch (e) { } }
-                });
-                document.getElementById('chat-box').scrollTop = 99999;
+                const { done, value } = await r.read(); 
+                if (done) break;
+                
+                buffer += dec.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop(); 
+
+                for (const line of lines) {
+                    const trimmed = line.trim();
+                    if (!trimmed || trimmed === 'data: [DONE]') continue;
+                    
+                    if (trimmed.startsWith('data:')) {
+                        try {
+                            const jsonStr = trimmed.replace(/^data:\s*/, '');
+                            const json = JSON.parse(jsonStr);
+                            const content = json.choices?.[0]?.delta?.content || '';
+                            
+                            if (content) {
+                                final += content;
+                                aiDiv.innerHTML = marked.parse(final);
+                                const chatBox = document.getElementById('chat-box');
+                                if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
+                            }
+                        } catch (e) { console.error('Parse Error:', e); }
+                    }
+                }
             }
+
             const aiTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
             aiDiv.innerHTML += `<div class="time">${aiTime}</div>`;
             aiDiv.oncontextmenu = (e) => { e.preventDefault(); ui.showCtx(e.pageX, e.pageY, 'ai', aiIdx); };
@@ -394,7 +418,6 @@ Object.assign(core, {
             aiDiv.ontouchend = () => clearTimeout(timer); aiDiv.ontouchmove = () => clearTimeout(timer);
             aiDiv.innerHTML += `<div class="replay-btn" onclick="core.speak('${final.replace(/'/g, "\\'").replace(/\n/g, ' ')}', true)">🔈 Replay</div>`;
             sess.msgs.push({ role: 'assistant', content: final, time: aiTime }); core.saveSessions();
-            // 这里就是之前报错的源头，现在有 speak 函数支持了
             if (core.autoTTS) core.speak(final);
         } catch (e) { aiDiv.innerHTML = 'Error: ' + e.message; }
     }
