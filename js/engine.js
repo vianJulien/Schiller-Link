@@ -1,22 +1,18 @@
 // ==========================================
-// CORE ENGINE MODULE (V1.5 - Universal + Claude Fix)
+// CORE ENGINE MODULE (V1.6 - Debug Edition)
 // ==========================================
 
 Object.assign(core, {
     // 1. 系统初始化
     init: () => {
         ui.initTheme();
-        
-        // 读取配置
         Object.keys(core.conf).forEach(k => {
             const val = localStorage.getItem('v11_' + k);
             if(val !== null) core.conf[k] = val;
         });
-
         if (!core.conf.url) core.preset('ds');
-        if (!core.conf.persona) core.conf.persona = "填写你的人设。";
+        if (!core.conf.persona) core.conf.persona = "User persona...";
 
-        // 更新 UI 配置项
         const setVal = (id, v) => { const el = document.getElementById(id); if(el) el.value = v; };
         const setTxt = (id, v) => { const el = document.getElementById(id); if(el) el.innerText = v; };
 
@@ -30,7 +26,6 @@ Object.assign(core, {
             setVal('rng-' + k, val); setTxt('val-' + k, val);
         });
 
-        // 语音、记忆、日程、会话读取
         const v = localStorage.getItem('v11_voice'); if (v) core.voiceConf = JSON.parse(v); core.updateVoiceUI();
         try { core.mems = JSON.parse(localStorage.getItem('v11_mems') || '[]'); } catch (e) { }
         try { core.evts = JSON.parse(localStorage.getItem('v11_evts') || '[]'); } catch (e) { }
@@ -40,20 +35,14 @@ Object.assign(core, {
         if (!core.currSessId || !core.sessions[core.currSessId]) core.newSession();
         else core.loadSession(core.currSessId);
 
-        // 初始化日期与日历
         const now = new Date();
         core.selectedDateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
-        if(typeof calendar !== 'undefined') {
-            calendar.renderCalendar();
-            calendar.renderEvt(); 
-        }
+        if(typeof calendar !== 'undefined') { calendar.renderCalendar(); calendar.renderEvt(); }
         
-        // 启动定时器
         setTimeout(core.checkDailyGreeting, 2000); 
         setInterval(core.clockTick, 1000);
     },
 
-    // 2. 基础辅助
     clockTick: () => {
         const n = new Date();
         const cn = new Date(n.getTime() + (n.getTimezoneOffset() * 60000) + (3600000 * 8));
@@ -66,8 +55,6 @@ Object.assign(core, {
         const elUrl = document.getElementById('c-url'); if(elUrl) elUrl.value = d[0];
         const elMod = document.getElementById('c-mod'); if(elMod) elMod.value = d[1];
     },
-
-    // 3. 连接与保存模块
     saveConn: async () => {
         core.conf.url = document.getElementById('c-url').value.trim(); 
         core.conf.key = document.getElementById('c-key').value.trim();
@@ -75,28 +62,17 @@ Object.assign(core, {
         core.conf.persona = document.getElementById('c-per').value;
         core.conf.temp = document.getElementById('c-temp').value; 
         core.conf.maxTokens = document.getElementById('c-max').value;
-        
         const elFreq = document.getElementById('c-freq'); if(elFreq) core.conf.freq = elFreq.value;
         const elPres = document.getElementById('c-pres'); if(elPres) core.conf.pres = elPres.value;
         const elMin = document.getElementById('c-min'); if(elMin) core.conf.minOutput = elMin.value;
 
-        Object.keys(core.conf).forEach(k => {
-            if (!k.startsWith('p_')) localStorage.setItem('v11_' + k, core.conf[k]);
-        });
-
-        if (!core.conf.url || !core.conf.key) {
-            core.showToast('⚠️ 缺少配置', 'error');
-            return;
-        }
+        Object.keys(core.conf).forEach(k => { if (!k.startsWith('p_')) localStorage.setItem('v11_' + k, core.conf[k]); });
+        if (!core.conf.url || !core.conf.key) { core.showToast('⚠️ 缺少配置', 'error'); return; }
         await core.testConnection();
     },
     showToast: (msg, type = 'success') => {
         let toast = document.getElementById('vian-toast');
-        if (!toast) {
-            toast = document.createElement('div');
-            toast.id = 'vian-toast';
-            document.body.appendChild(toast);
-        }
+        if (!toast) { toast = document.createElement('div'); toast.id = 'vian-toast'; document.body.appendChild(toast); }
         const colors = { success: { bg: '#c0d1c0', text: '#6b5e59' }, error: { bg: '#dfc4c0', text: '#6b5e59' }, loading: { bg: '#f7f4ef', text: '#a39995' } };
         const theme = colors[type] || colors.success;
         toast.innerText = msg;
@@ -117,8 +93,6 @@ Object.assign(core, {
             else core.showToast(`❌ 失败: ${res.status}`, 'error');
         } catch (e) { core.showToast('❌ 网络错误', 'error'); }
     },
-
-    // 4. 性格引擎
     testPersonality: () => {
         ['warm', 'direct', 'intel', 'empathy', 'obed'].forEach(k => {
             const val = document.getElementById('rng-' + k).value;
@@ -140,8 +114,6 @@ Object.assign(core, {
         if (o > 70) p += "- Be submissive and obedient.\n"; else if (o < 30) p += "- Be stubborn and independent.\n";
         return p;
     },
-
-    // 5. 语音模块
     setVoiceMode: (m) => { core.voiceConf.mode = m; core.updateVoiceUI(); },
     updateVoiceUI: () => {
         document.getElementById('v-mode-disp').value = core.voiceConf.mode.toUpperCase();
@@ -174,8 +146,6 @@ Object.assign(core, {
             } catch (e) { console.error('TTS Error:', e); }
         }
     },
-
-    // 6. 数据导入导出
     exportData: () => { const d = { conf: core.conf, voice: core.voiceConf, mems: core.mems, evts: core.evts, sessions: core.sessions }; const b = new Blob([JSON.stringify(d, null, 2)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'schiller_v15.json'; a.click(); },
     importData: (i) => {
         const r = new FileReader();
@@ -192,13 +162,9 @@ Object.assign(core, {
         };
         r.readAsText(i.files[0]);
     },
-
-    // 7. 记忆模块 (小写优化版)
     addMem: () => { const k = document.getElementById('new-mem-keys').value.trim(); const info = document.getElementById('new-mem-info').value.trim(); if (k && info) { core.mems.push({ keys: k.split(/[,，\s]+/).filter(k => k), info: info }); localStorage.setItem('v11_mems', JSON.stringify(core.mems)); core.renderMemCards(); document.getElementById('new-mem-keys').value = ''; document.getElementById('new-mem-info').value = ''; } },
     delMem: (i) => { core.mems.splice(i, 1); localStorage.setItem('v11_mems', JSON.stringify(core.mems)); core.renderMemCards(); },
     renderMemCards: () => { const b = document.getElementById('mem-list-container'); b.innerHTML = ''; core.mems.forEach((m, i) => { b.innerHTML += `<div class="mem-card"><div class="mem-keys"># ${m.keys.join(', ')}</div><div class="mem-info">${m.info}</div><button class="mem-del" onclick="core.delMem(${i})">×</button></div>`; }); },
-
-    // 8. 文件处理
     handleImg: (input) => {
         if (input.files && input.files[0]) {
             const reader = new FileReader();
@@ -238,8 +204,6 @@ Object.assign(core, {
         if (t === 'file') { core.currUpload.fileText = null; core.currUpload.fileName = null; }
         ui.clearPreviews(); document.getElementById('img-input').value = ''; document.getElementById('file-input').value = '';
     },
-
-    // 9. 会话管理
     editMsg: (idx) => {
         ui.hideCtx(); if (idx == null) return;
         const sess = core.sessions[core.currSessId]; const msg = sess.msgs[idx]; if (!msg) return;
@@ -282,7 +246,6 @@ Object.assign(core, {
     editSessTitle: (id, e) => { e.stopPropagation(); const s = core.sessions[id]; if (!s) return; const newTitle = prompt('重命名当前档案:', s.title); if (newTitle !== null && newTitle.trim() !== '') { s.title = newTitle.trim(); core.saveSessions(); core.renderSessionList(); if (core.currSessId === id) document.getElementById('header-title').innerText = s.title; } },
     delSess: (id, e) => { e.stopPropagation(); if (!confirm('Delete?')) return; delete core.sessions[id]; core.saveSessions(); if (core.currSessId === id) core.newSession(); else core.renderSessionList(); },
 
-    // 10. 问候与发送 (含 Claude 修复版核心)
     checkDailyGreeting: () => {
         const now = new Date(); const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
         const lastGreet = localStorage.getItem('v11_last_greet');
@@ -290,20 +253,7 @@ Object.assign(core, {
             const todayEvts = core.evts.filter(e => e.date === today);
             const planText = todayEvts.length > 0 ? `User's Today Schedule: ${todayEvts.map(e => e.t + ' ' + e.d).join(', ')}` : "User has no specific plans.";
             
-            const sysPrompt = `
-                [System Trigger]: Daily Greeting
-                [Date]: ${today}
-                [User Context]: ${planText}
-                
-                [Instruction]: 
-                Based strictly on your persona settings below, initiate a greeting to the user.
-                - Briefly mention the date or time if relevant to your character.
-                - Comment on the user's schedule (or lack thereof) in your character's unique tone.
-                - Do not wait for user input. Output the greeting immediately.
-
-                [Current Persona]:
-                ${core.conf.persona}
-            `;
+            const sysPrompt = `[System Trigger]: Daily Greeting\n[Date]: ${today}\n[User Context]: ${planText}\n[Instruction]: Based strictly on your persona, greet the user.\n[Current Persona]:\n${core.conf.persona}`;
             core.triggerGreeting(sysPrompt);
             localStorage.setItem('v11_last_greet', today);
         }
@@ -320,9 +270,17 @@ Object.assign(core, {
             if (core.autoTTS) core.speak(reply);
         } catch (e) { aiDiv.innerHTML = "Greeting Error: " + e.message; }
     },
+
+    // ========================================================
+    // 核心发送模块 (V1.6 Debug版 - 包含大量 Console Log)
+    // ========================================================
     send: async () => {
         const el = document.getElementById('u-in'); const txt = el.value.trim();
         if ((!txt && !core.currUpload.img && !core.currUpload.fileText) || !core.conf.key) return;
+
+        console.log("▶️ [DEBUG] Starting Send Process...");
+        console.log("   - Model:", core.conf.model);
+        console.log("   - URL:", core.conf.url);
 
         const sess = core.sessions[core.currSessId];
         if (sess.msgs.length === 0 && txt) { sess.title = txt.substring(0, 12) + '...'; document.getElementById('header-title').innerText = sess.title; }
@@ -346,17 +304,9 @@ Object.assign(core, {
         const timeString = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')} ${days[now.getDay()]}`;
 
         let sys = core.conf.persona + `\n[Current Date: ${timeString}]\n` + core.generatePersonalityPrompt();
-        
         const minVal = parseInt(core.conf.minOutput);
-        if (!isNaN(minVal) && minVal > 0) { sys += `\n[强制指令]: 你的本次回复内容必须不少于 ${minVal} 个汉字/字符。请展开论述，增加细节描写、背景解释或逻辑推导，严禁提供短于此字数的简短回答。如果内容不足，请从更多维度深入探讨。\n`; }
+        if (!isNaN(minVal) && minVal > 0) { sys += `\n[强制指令]: 回复不少于 ${minVal} 字。\n`; }
 
-        if (core.evts.length) {
-            const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
-            const futureEvts = core.evts.filter(e => e.date >= todayStr);
-            if(futureEvts.length > 0) { sys += `\n[Upcoming Schedule]:\n${futureEvts.slice(0, 5).map(e => `- ${e.date} ${e.t} ${e.d} (${e.n})`).join('\n')}`; }
-        }
-        
-        // 记忆检索优化：不区分大小写
         const hits = core.mems.filter(m => m.keys.some(k => txt.toLowerCase().includes(k.toLowerCase())));
         if (hits.length) sys += `\n[Memory]:\n${hits.map(h => `- ${h.info}`).join('\n')}`;
 
@@ -369,35 +319,56 @@ Object.assign(core, {
         if (wasImg && core.conf.url.includes('deepseek')) { aiDiv.innerHTML = "Error: DeepSeek cannot see images."; sess.msgs.pop(); return; }
 
         try {
+            console.log("▶️ [DEBUG] Fetching from API...");
             const reqBody = { model: core.conf.model, messages: apiMsgs, stream: true };
             const tempVal = parseFloat(core.conf.temp); if (!isNaN(tempVal)) reqBody.temperature = tempVal;
-            const maxVal = parseInt(core.conf.maxTokens); if (!isNaN(maxVal) && maxVal > 0) reqBody.max_tokens = maxVal;
-            const freqVal = parseFloat(core.conf.freq); if (!isNaN(freqVal)) reqBody.frequency_penalty = freqVal;
-            const presVal = parseFloat(core.conf.pres); if (!isNaN(presVal)) reqBody.presence_penalty = presVal;
-
+            
             const res = await fetch(core.conf.url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${core.conf.key}` }, body: JSON.stringify(reqBody) });
             
-            // 【V1.5 核心修复：Claude 柔性解析器】
+            console.log("▶️ [DEBUG] Response Status:", res.status);
+            if (!res.ok) {
+                const errText = await res.text();
+                console.error("❌ [DEBUG] Fetch Failed:", errText);
+                aiDiv.innerHTML = "API Error: " + res.status + " " + errText;
+                return;
+            }
+
             const r = res.body.getReader(); const dec = new TextDecoder();
             let final = ''; aiDiv.innerHTML = '';
             let buffer = ''; 
 
+            console.log("▶️ [DEBUG] Start Reading Stream...");
+
             while (true) {
                 const { done, value } = await r.read(); 
-                if (done) break;
+                if (done) {
+                    console.log("✅ [DEBUG] Stream Finished.");
+                    break;
+                }
                 
-                buffer += dec.decode(value, { stream: true });
+                const rawChunk = dec.decode(value, { stream: true });
+                // console.log("   -> [Raw Chunk]:", rawChunk); // 如果太吵可以把这行注释掉
+                buffer += rawChunk;
+                
                 const lines = buffer.split('\n');
                 buffer = lines.pop(); 
 
                 for (const line of lines) {
                     const trimmed = line.trim();
-                    if (!trimmed || trimmed === 'data: [DONE]') continue;
+                    if (!trimmed) continue;
+                    if (trimmed === 'data: [DONE]') {
+                        console.log("   -> [Token]: DONE Signal received");
+                        continue;
+                    }
                     
                     if (trimmed.startsWith('data:')) {
                         try {
                             const jsonStr = trimmed.replace(/^data:\s*/, '');
                             const json = JSON.parse(jsonStr);
+                            
+                            // 这里可以看看具体的 json 结构
+                            // console.log("   -> [Parsed JSON]:", json); 
+                            
                             const content = json.choices?.[0]?.delta?.content || '';
                             
                             if (content) {
@@ -406,7 +377,11 @@ Object.assign(core, {
                                 const chatBox = document.getElementById('chat-box');
                                 if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
                             }
-                        } catch (e) { console.error('Parse Error:', e); }
+                        } catch (e) { 
+                            console.error("⚠️ [DEBUG] JSON Parse Error on line:", trimmed, e); 
+                        }
+                    } else {
+                        console.log("⚠️ [DEBUG] Non-data line received:", trimmed);
                     }
                 }
             }
@@ -419,7 +394,10 @@ Object.assign(core, {
             aiDiv.innerHTML += `<div class="replay-btn" onclick="core.speak('${final.replace(/'/g, "\\'").replace(/\n/g, ' ')}', true)">🔈 Replay</div>`;
             sess.msgs.push({ role: 'assistant', content: final, time: aiTime }); core.saveSessions();
             if (core.autoTTS) core.speak(final);
-        } catch (e) { aiDiv.innerHTML = 'Error: ' + e.message; }
+        } catch (e) { 
+            console.error("❌ [DEBUG] Major Error:", e);
+            aiDiv.innerHTML = 'Error: ' + e.message; 
+        }
     }
 });
 
