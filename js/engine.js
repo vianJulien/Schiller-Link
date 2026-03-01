@@ -1,68 +1,135 @@
 // ==========================================
-// CORE ENGINE MODULE (V2.1 - Ultimate Edition)
+// CORE ENGINE MODULE (V2.2 - Memory Compressor)
 // ==========================================
-// Features: Hybrid Truncation, Session Isolation, Persona Cards, Claude Fix
+// Features: Hybrid Truncation, Session Isolation, Persona Cards, Memory Compression
 
 Object.assign(core, {
-    // ==========================================
-    // 1. 系统初始化 & UI 注入
-    // ==========================================
+    // 1. 系统初始化
     init: () => {
         ui.initTheme();
         
-        // 读取全局默认配置 (作为新会话的模板)
+        // 读取配置
         Object.keys(core.conf).forEach(k => {
             const val = localStorage.getItem('v11_' + k);
             if(val !== null) core.conf[k] = val;
         });
 
-        // 读取人设卡库
+        // 读取人设 & 记忆
         try { core.personas = JSON.parse(localStorage.getItem('v11_personas') || '{}'); } catch (e) { core.personas = {}; }
-
-        // 绑定全局默认值到 UI (视觉层)
+        try { core.mems = JSON.parse(localStorage.getItem('v11_mems') || '[]'); } catch (e) { }
+        try { core.evts = JSON.parse(localStorage.getItem('v11_evts') || '[]'); } catch (e) { }
+        try { core.sessions = JSON.parse(localStorage.getItem('v11_sessions') || '{}'); } catch (e) { }
+        
+        // UI 绑定
         const setVal = (id, v) => { const el = document.getElementById(id); if(el) el.value = v; };
         const setTxt = (id, v) => { const el = document.getElementById(id); if(el) el.innerText = v; };
 
         setVal('c-url', core.conf.url); setVal('c-key', core.conf.key); setVal('c-mod', core.conf.model);
         setVal('c-per', core.conf.persona); setVal('c-temp', core.conf.temp); setTxt('t-val', core.conf.temp);
         
-        // 读取其他数据
-        const v = localStorage.getItem('v11_voice'); if (v) core.voiceConf = JSON.parse(v); core.updateVoiceUI();
-        try { core.mems = JSON.parse(localStorage.getItem('v11_mems') || '[]'); } catch (e) { }
-        try { core.evts = JSON.parse(localStorage.getItem('v11_evts') || '[]'); } catch (e) { }
-        try { core.sessions = JSON.parse(localStorage.getItem('v11_sessions') || '{}'); } catch (e) { }
-        
-        // 加载最后一次会话
+        // 加载会话
         core.currSessId = localStorage.getItem('v11_curr_id');
         if (!core.currSessId || !core.sessions[core.currSessId]) core.newSession();
         else core.loadSession(core.currSessId);
 
-        // 自动注入人设卡按钮
-        core.injectPersonaUI();
+        // 【V2.2 新增】自动注入功能按钮 (人设卡 + 记忆压缩)
+        core.injectToolsUI();
 
-        // 启动定时器
         setTimeout(core.checkDailyGreeting, 2000); 
         setInterval(core.clockTick, 1000);
     },
 
-    // ==========================================
-    // 2. 人设卡管理 (自动注入)
-    // ==========================================
-    injectPersonaUI: () => {
+    // 2. 界面注入 (Persona & Memory Tools)
+    injectToolsUI: () => {
+        // A. 人设工具
         const perBox = document.getElementById('c-per');
         if(perBox && !document.getElementById('persona-tools')) {
             const div = document.createElement('div');
             div.id = 'persona-tools';
             div.style.marginTop = '5px';
             div.innerHTML = `
-                <button onclick="core.savePersonaCard()" style="font-size:12px;padding:4px 8px;cursor:pointer;margin-right:5px;">💾 存为人设卡</button>
-                <button onclick="core.loadPersonaCard()" style="font-size:12px;padding:4px 8px;cursor:pointer;">📂 读取人设卡</button>
+                <button onclick="core.savePersonaCard()" style="font-size:12px;padding:4px 8px;cursor:pointer;margin-right:5px;">💾 存为人设</button>
+                <button onclick="core.loadPersonaCard()" style="font-size:12px;padding:4px 8px;cursor:pointer;">📂 读取人设</button>
             `;
             perBox.parentNode.insertBefore(div, perBox.nextSibling);
         }
+
+        // B. 记忆压缩工具 (注入到记忆列表上方)
+        const memInput = document.getElementById('new-mem-keys');
+        if(memInput && !document.getElementById('mem-tools')) {
+            const div = document.createElement('div');
+            div.id = 'mem-tools';
+            div.style.marginBottom = '5px';
+            div.innerHTML = `
+                <button onclick="core.compressSession()" style="width:100%; padding:8px; background:#e0e0e0; border:none; border-radius:4px; cursor:pointer; font-weight:bold; color:#333;">🧠 压缩当前对话至记忆 (Compress Chat)</button>
+            `;
+            memInput.parentNode.insertBefore(div, memInput);
+        }
     },
+    
+    // 3. 【V2.2 核心】记忆压缩功能
+    compressSession: async () => {
+        const sess = core.sessions[core.currSessId];
+        const cfg = sess.config || core.conf;
+        
+        if (sess.msgs.length < 2) return alert("对话太短，没必要压缩。");
+        if (!confirm("确定要将当前的对话记录总结并存入记忆库吗？\n(这将消耗一次 API 调用)")) return;
+
+        core.showToast('正在阅读并总结...', 'loading');
+
+        // 构造总结请求
+        const chatLog = sess.msgs.map(m => `${m.role}: ${m.content}`).join('\n');
+        const prompt = `
+            [System Instruction]: 
+            You are a helpful assistant serving as a memory archivist.
+            Read the following chat history between User and Assistant.
+            Summarize the key events, facts, and character developments into a concise paragraph (max 100 words).
+            The summary must be in the same language as the chat.
+            
+            [Chat History]:
+            ${chatLog}
+        `;
+
+        try {
+            const res = await fetch(cfg.url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cfg.key}` },
+                body: JSON.stringify({ 
+                    model: cfg.model, 
+                    messages: [{ role: 'user', content: prompt }], 
+                    max_tokens: 500 
+                })
+            });
+            const data = await res.json();
+            const summary = data.choices[0].message.content;
+
+            // 存入记忆库
+            const dateStr = new Date().toLocaleDateString();
+            core.mems.push({ 
+                keys: ['Summary', '摘要', '前情提要'], 
+                info: `[${dateStr} Summary]: ${summary}` 
+            });
+            localStorage.setItem('v11_mems', JSON.stringify(core.mems));
+            core.renderMemCards();
+            
+            core.showToast('✅ 记忆已压缩保存');
+
+            // 询问是否清空
+            if (confirm(`摘要已生成：\n"${summary.substring(0, 50)}..."\n\n是否清空当前聊天记录，开始新的一章？`)) {
+                sess.msgs = [];
+                core.saveSessions();
+                core.loadSession(core.currSessId);
+            }
+
+        } catch (e) {
+            alert("压缩失败: " + e.message);
+            core.showToast('❌ 压缩失败', 'error');
+        }
+    },
+
+    // 4. 常规功能保持不变
     savePersonaCard: () => {
-        const name = prompt("给当前人设起个名字 (例如: 席勒教授):");
+        const name = prompt("给当前人设起个名字:");
         if (name) {
             core.personas[name] = document.getElementById('c-per').value;
             localStorage.setItem('v11_personas', JSON.stringify(core.personas));
@@ -71,23 +138,16 @@ Object.assign(core, {
     },
     loadPersonaCard: () => {
         const names = Object.keys(core.personas);
-        if (names.length === 0) return alert("还没有保存过人设卡。");
-        const name = prompt("输入要加载的人设名:\n" + names.join(", "));
+        if (names.length === 0) return alert("无存档");
+        const name = prompt("输入加载的人设名:\n" + names.join(", "));
         if (core.personas[name]) {
             document.getElementById('c-per').value = core.personas[name];
-            core.saveConn(); // 自动保存到当前会话
+            core.saveConn();
             core.showToast(`人设 [${name}] 已加载`);
-        } else if(name) {
-            alert("找不到这个人设。");
         }
     },
-
-    // ==========================================
-    // 3. 会话管理 (核心：独立配置)
-    // ==========================================
     newSession: () => { 
         const id = Date.now().toString(); 
-        // 关键：新建时克隆全局配置作为初始配置
         core.sessions[id] = { id, title: 'New Chat', msgs: [], config: { ...core.conf } }; 
         core.currSessId = id; 
         core.saveSessions(); 
@@ -99,8 +159,6 @@ Object.assign(core, {
         core.currSessId = id; localStorage.setItem('v11_curr_id', id); 
         const sess = core.sessions[id];
         document.getElementById('header-title').innerText = sess.title; 
-        
-        // 恢复配置，如果没有则兜底
         if (!sess.config) sess.config = { ...core.conf }; 
         
         const set = (eid, key) => { const el = document.getElementById(eid); if(el) el.value = sess.config[key] || core.conf[key] || ''; };
@@ -111,82 +169,36 @@ Object.assign(core, {
         sess.msgs.forEach((m, i) => ui.bubble(m.role === 'assistant' ? 'ai' : 'user', m.content, m.img, m.file, i, m.time)); 
     },
     saveSessions: () => localStorage.setItem('v11_sessions', JSON.stringify(core.sessions)),
-    renderSessionList: () => {
-        const list = document.getElementById('session-list'); list.innerHTML = '';
-        Object.keys(core.sessions).sort().reverse().forEach(id => {
-            const s = core.sessions[id]; const div = document.createElement('div');
-            div.className = `sb-item ${id === core.currSessId ? 'active' : ''}`;
-            div.innerHTML = `<span style="display:inline-block; max-width:70%; overflow:hidden; text-overflow:ellipsis; vertical-align:middle;">${s.title}</span><button class="sb-edit" onclick="core.editSessTitle('${id}', event)">✏️</button><button class="sb-del" onclick="core.delSess('${id}', event)">×</button>`;
-            div.onclick = () => { core.loadSession(id); ui.toggleSidebar(false); };
-            list.appendChild(div);
-        });
-    },
-    editSessTitle: (id, e) => { e.stopPropagation(); const s = core.sessions[id]; if (!s) return; const newTitle = prompt('重命名当前档案:', s.title); if (newTitle !== null && newTitle.trim() !== '') { s.title = newTitle.trim(); core.saveSessions(); core.renderSessionList(); if (core.currSessId === id) document.getElementById('header-title').innerText = s.title; } },
-    delSess: (id, e) => { e.stopPropagation(); if (!confirm('Delete?')) return; delete core.sessions[id]; core.saveSessions(); if (core.currSessId === id) core.newSession(); else core.renderSessionList(); },
-
-    // ==========================================
-    // 4. 连接与配置保存
-    // ==========================================
     saveConn: async () => {
         const sess = core.sessions[core.currSessId];
         if (!sess.config) sess.config = {};
-
-        // 保存到当前会话
         sess.config.url = document.getElementById('c-url').value.trim(); 
         sess.config.key = document.getElementById('c-key').value.trim();
         sess.config.model = document.getElementById('c-mod').value.trim(); 
         sess.config.persona = document.getElementById('c-per').value;
         sess.config.temp = document.getElementById('c-temp').value; 
-        
-        // 更新全局默认值
         core.conf = { ...core.conf, ...sess.config };
         Object.keys(core.conf).forEach(k => { if (!k.startsWith('p_')) localStorage.setItem('v11_' + k, core.conf[k]); });
-
         core.saveSessions();
-        core.showToast('✅ 当前会话配置已保存', 'success');
+        core.showToast('✅ 配置保存', 'success');
         await core.testConnection();
     },
-    preset: (t) => {
-        const d = t === 'ds' ? ['https://api.deepseek.com/chat/completions', 'deepseek-chat'] : ['https://api.openai.com/v1/chat/completions', 'gpt-4o'];
-        const elUrl = document.getElementById('c-url'); if(elUrl) elUrl.value = d[0];
-        const elMod = document.getElementById('c-mod'); if(elMod) elMod.value = d[1];
-    },
-    testConnection: async () => {
-        const cfg = core.sessions[core.currSessId].config || core.conf;
-        core.showToast('正在连接...', 'loading');
-        try {
-            const res = await fetch(cfg.url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cfg.key}` },
-                body: JSON.stringify({ model: cfg.model, messages: [{ role: 'user', content: 'hi' }], max_tokens: 1 })
-            });
-            if (res.ok) core.showToast('✅ 连接成功', 'success');
-            else core.showToast(`❌ 失败: ${res.status}`, 'error');
-        } catch (e) { core.showToast('❌ 网络错误', 'error'); }
-    },
-
-    // ==========================================
-    // 5. 核心发送模块 (Hybrid Logic & Claude Fix)
-    // ==========================================
     send: async () => {
         const el = document.getElementById('u-in'); const txt = el.value.trim();
         const sess = core.sessions[core.currSessId];
-        const cfg = sess.config || core.conf; // 使用会话独立配置
+        const cfg = sess.config || core.conf; 
 
         if ((!txt && !core.currUpload.img && !core.currUpload.fileText) || !cfg.key) return;
 
-        // UI 显示
         if (sess.msgs.length === 0 && txt) { sess.title = txt.substring(0, 12) + '...'; document.getElementById('header-title').innerText = sess.title; }
         const now = new Date(); const userTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
         sess.msgs.push({ role: 'user', content: txt, img: core.currUpload.img, file: core.currUpload.fileName, time: userTime });
         ui.bubble('user', txt, core.currUpload.img, core.currUpload.fileName, sess.msgs.length - 1, userTime);
 
-        // 准备内容
         let finalText = txt;
         if (core.currUpload.fileText) finalText += `\n\n[FILE: ${core.currUpload.fileName}]\n${core.currUpload.fileText}`;
         let apiContent = core.currUpload.img ? [{ type: "text", text: finalText || "Image." }, { type: "image_url", image_url: { url: core.currUpload.img } }] : finalText;
 
-        // 清理状态
         core.saveSessions(); const wasImg = core.currUpload.img; core.currUpload = { img: null, fileText: null, fileName: null };
         el.value = ''; ui.clearPreviews();
 
@@ -194,26 +206,21 @@ Object.assign(core, {
         const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         const dateStr = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()} ${days[now.getDay()]}`;
         
-        // System Prompt
         let sys = (cfg.persona || "You are a helpful assistant.") + `\n[Date: ${dateStr}]`;
         const hits = core.mems.filter(m => m.keys.some(k => txt.toLowerCase().includes(k.toLowerCase())));
         if (hits.length) sys += `\n[Memory]:\n${hits.map(h => `- ${h.info}`).join('\n')}`;
 
-        // 【混合截断逻辑】(Hybrid Truncation)
-        const HISTORY_MSG_LIMIT = 10;   // 最多只要最近 10 条
-        const MAX_CONTEXT_CHARS = 2000; // 总字数只要 2000 字
+        // 混合截断逻辑 (Hybrid Truncation)
+        const HISTORY_MSG_LIMIT = 10;   
+        const MAX_CONTEXT_CHARS = 2000; 
 
-        // 1. 取最近条目
         let historyCandidates = sess.msgs.slice(0, sess.msgs.length - 1).slice(-HISTORY_MSG_LIMIT);
-        
-        // 2. 字数熔断
         let currentChars = historyCandidates.reduce((acc, m) => acc + (m.content || '').length, 0);
         while (currentChars > MAX_CONTEXT_CHARS && historyCandidates.length > 0) {
             const removed = historyCandidates.shift(); 
             currentChars -= (removed.content || '').length;
         }
 
-        // 3. 组装请求
         const apiMsgs = [{ role: 'system', content: sys }];
         historyCandidates.forEach(m => {
             apiMsgs.push({ role: m.role, content: m.content + (m.img ? ' [Image sent]' : '') });
@@ -232,10 +239,8 @@ Object.assign(core, {
                 body: JSON.stringify(reqBody) 
             });
 
-            // Claude 兼容流式解析器
             const r = res.body.getReader(); const dec = new TextDecoder();
             let final = ''; aiDiv.innerHTML = ''; let buffer = '';
-            
             while (true) {
                 const { done, value } = await r.read(); if(done) break;
                 buffer += dec.decode(value, {stream:true});
@@ -251,26 +256,27 @@ Object.assign(core, {
                     }
                 }
             }
-            
             const aiTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
             aiDiv.innerHTML += `<div class="time">${aiTime}</div>`;
             sess.msgs.push({ role: 'assistant', content: final, time: aiTime }); 
-            sess.config = cfg; // 保存当前会话配置
+            sess.config = cfg; 
             core.saveSessions();
             if (core.autoTTS) core.speak(final);
-
         } catch (e) { aiDiv.innerHTML = 'Error: ' + e.message; }
     },
-
-    // ==========================================
-    // 6. 其他辅助模块 (记忆, 文件, 语音)
-    // ==========================================
+    
+    // 5. 辅助功能 (保持 V1.6)
     clockTick: () => {
         const n = new Date();
         const cn = new Date(n.getTime() + (n.getTimezoneOffset() * 60000) + (3600000 * 8));
         const ny = new Date(n.toLocaleString("en-US", { timeZone: "America/New_York" }));
         const elCn = document.getElementById('t-cn'); if(elCn) elCn.innerText = `${String(cn.getHours()).padStart(2, '0')}:${String(cn.getMinutes()).padStart(2, '0')}`;
         const elNy = document.getElementById('t-ny'); if(elNy) elNy.innerText = `${String(ny.getHours()).padStart(2, '0')}:${String(ny.getMinutes()).padStart(2, '0')}`;
+    },
+    preset: (t) => {
+        const d = t === 'ds' ? ['https://api.deepseek.com/chat/completions', 'deepseek-chat'] : ['https://api.openai.com/v1/chat/completions', 'gpt-4o'];
+        const elUrl = document.getElementById('c-url'); if(elUrl) elUrl.value = d[0];
+        const elMod = document.getElementById('c-mod'); if(elMod) elMod.value = d[1];
     },
     showToast: (msg, type = 'success') => {
         let toast = document.getElementById('vian-toast');
@@ -283,8 +289,37 @@ Object.assign(core, {
         if (core.toastTimer) clearTimeout(core.toastTimer);
         core.toastTimer = setTimeout(() => { toast.style.opacity = '0'; toast.style.top = '-50px'; }, 3000);
     },
-    
-    // Voice
+    testConnection: async () => {
+        const cfg = core.sessions[core.currSessId].config || core.conf;
+        core.showToast('正在连接...', 'loading');
+        try {
+            const res = await fetch(cfg.url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cfg.key}` },
+                body: JSON.stringify({ model: cfg.model, messages: [{ role: 'user', content: 'hi' }], max_tokens: 1 })
+            });
+            if (res.ok) core.showToast('✅ 连接成功', 'success');
+            else core.showToast(`❌ 失败: ${res.status}`, 'error');
+        } catch (e) { core.showToast('❌ 网络错误', 'error'); }
+    },
+    exportData: () => { const d = { conf: core.conf, voice: core.voiceConf, mems: core.mems, evts: core.evts, sessions: core.sessions, personas: core.personas }; const b = new Blob([JSON.stringify(d, null, 2)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'schiller_v22.json'; a.click(); },
+    importData: (i) => {
+        const r = new FileReader();
+        r.onload = (e) => {
+            try {
+                const d = JSON.parse(e.target.result);
+                if (d.conf) { Object.keys(d.conf).forEach(k => { localStorage.setItem('v11_' + k, d.conf[k]); }); }
+                if (d.voice) localStorage.setItem('v11_voice', JSON.stringify(d.voice));
+                if (d.mems) localStorage.setItem('v11_mems', JSON.stringify(d.mems));
+                if (d.evts) localStorage.setItem('v11_evts', JSON.stringify(d.evts));
+                if (d.sessions) localStorage.setItem('v11_sessions', JSON.stringify(d.sessions));
+                if (d.personas) localStorage.setItem('v11_personas', JSON.stringify(d.personas));
+                alert('Restored'); location.reload();
+            } catch (err) { alert('Error: ' + err.message); }
+        };
+        r.readAsText(i.files[0]);
+    },
+    // 其他未修改的辅助函数
     setVoiceMode: (m) => { core.voiceConf.mode = m; core.updateVoiceUI(); },
     updateVoiceUI: () => {
         document.getElementById('v-mode-disp').value = core.voiceConf.mode.toUpperCase();
@@ -317,8 +352,6 @@ Object.assign(core, {
             } catch (e) { console.error('TTS Error:', e); }
         }
     },
-
-    // Mem & Files
     addMem: () => { const k = document.getElementById('new-mem-keys').value.trim(); const info = document.getElementById('new-mem-info').value.trim(); if (k && info) { core.mems.push({ keys: k.split(/[,，\s]+/).filter(k => k), info: info }); localStorage.setItem('v11_mems', JSON.stringify(core.mems)); core.renderMemCards(); document.getElementById('new-mem-keys').value = ''; document.getElementById('new-mem-info').value = ''; } },
     delMem: (i) => { core.mems.splice(i, 1); localStorage.setItem('v11_mems', JSON.stringify(core.mems)); core.renderMemCards(); },
     renderMemCards: () => { const b = document.getElementById('mem-list-container'); b.innerHTML = ''; core.mems.forEach((m, i) => { b.innerHTML += `<div class="mem-card"><div class="mem-keys"># ${m.keys.join(', ')}</div><div class="mem-info">${m.info}</div><button class="mem-del" onclick="core.delMem(${i})">×</button></div>`; }); },
@@ -361,23 +394,6 @@ Object.assign(core, {
         if (t === 'file') { core.currUpload.fileText = null; core.currUpload.fileName = null; }
         ui.clearPreviews(); document.getElementById('img-input').value = ''; document.getElementById('file-input').value = '';
     },
-    exportData: () => { const d = { conf: core.conf, voice: core.voiceConf, mems: core.mems, evts: core.evts, sessions: core.sessions, personas: core.personas }; const b = new Blob([JSON.stringify(d, null, 2)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'schiller_v2.json'; a.click(); },
-    importData: (i) => {
-        const r = new FileReader();
-        r.onload = (e) => {
-            try {
-                const d = JSON.parse(e.target.result);
-                if (d.conf) { Object.keys(d.conf).forEach(k => { localStorage.setItem('v11_' + k, d.conf[k]); }); }
-                if (d.voice) localStorage.setItem('v11_voice', JSON.stringify(d.voice));
-                if (d.mems) localStorage.setItem('v11_mems', JSON.stringify(d.mems));
-                if (d.evts) localStorage.setItem('v11_evts', JSON.stringify(d.evts));
-                if (d.sessions) localStorage.setItem('v11_sessions', JSON.stringify(d.sessions));
-                if (d.personas) localStorage.setItem('v11_personas', JSON.stringify(d.personas));
-                alert('Restored'); location.reload();
-            } catch (err) { alert('Error: ' + err.message); }
-        };
-        r.readAsText(i.files[0]);
-    },
     editMsg: (idx) => {
         ui.hideCtx(); if (idx == null) return;
         const sess = core.sessions[core.currSessId]; const msg = sess.msgs[idx]; if (!msg) return;
@@ -403,9 +419,11 @@ Object.assign(core, {
         const lastGreet = localStorage.getItem('v11_last_greet');
         const sess = core.sessions[core.currSessId];
         const cfg = sess.config || core.conf;
+
         if (lastGreet !== today && cfg.key) {
             const todayEvts = core.evts.filter(e => e.date === today);
             const planText = todayEvts.length > 0 ? `User's Today Schedule: ${todayEvts.map(e => e.t + ' ' + e.d).join(', ')}` : "User has no specific plans.";
+            
             const sysPrompt = `[System Trigger]: Daily Greeting\n[Date]: ${today}\n[User Context]: ${planText}\n[Instruction]: Based strictly on your persona, greet the user.\n[Current Persona]:\n${cfg.persona}`;
             core.triggerGreeting(sysPrompt);
             localStorage.setItem('v11_last_greet', today);
@@ -435,10 +453,20 @@ Object.assign(core, {
         document.getElementById('u-in').value = "今晚我感到孤独";
         core.send();
     },
-    generatePersonalityPrompt: () => { return ""; } // 可选保留
+    generatePersonalityPrompt: () => { return ""; },
+    renderSessionList: () => {
+        const list = document.getElementById('session-list'); list.innerHTML = '';
+        Object.keys(core.sessions).sort().reverse().forEach(id => {
+            const s = core.sessions[id]; const div = document.createElement('div');
+            div.className = `sb-item ${id === core.currSessId ? 'active' : ''}`;
+            div.innerHTML = `<span style="display:inline-block; max-width:70%; overflow:hidden; text-overflow:ellipsis; vertical-align:middle;">${s.title}</span><button class="sb-edit" onclick="core.editSessTitle('${id}', event)">✏️</button><button class="sb-del" onclick="core.delSess('${id}', event)">×</button>`;
+            div.onclick = () => { core.loadSession(id); ui.toggleSidebar(false); };
+            list.appendChild(div);
+        });
+    },
+    editSessTitle: (id, e) => { e.stopPropagation(); const s = core.sessions[id]; if (!s) return; const newTitle = prompt('重命名当前档案:', s.title); if (newTitle !== null && newTitle.trim() !== '') { s.title = newTitle.trim(); core.saveSessions(); core.renderSessionList(); if (core.currSessId === id) document.getElementById('header-title').innerText = s.title; } },
+    delSess: (id, e) => { e.stopPropagation(); if (!confirm('Delete?')) return; delete core.sessions[id]; core.saveSessions(); if (core.currSessId === id) core.newSession(); else core.renderSessionList(); }
 });
 
-// ==========================================
-// BOOTSTRAP
-// ==========================================
+// 启动
 core.init();
